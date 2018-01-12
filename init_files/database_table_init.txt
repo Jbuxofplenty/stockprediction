@@ -1,0 +1,11 @@
+CREATE TABLE STOCKS (id INT NOT NULL PRIMARY KEY AUTO_INCREMENT, symbol CHAR(10), lastsale DECIMAL(10,10), marketcap DECIMAL(12,5), IPOyear INT(4), sector CHAR(20), industry CHAR(30), summaryquoteurl CHAR(40));
+
+CREATE TABLE AAPL (timestamp DATETIME NOT NULL PRIMARY KEY, price DECIMAL(20,5), SMA DECIMAL (20,5), EMA DECIMAL (20,5), MACD DECIMAL (20,5), MACD_HIST DECIMAL (20,5), MACD_SIGNAL DECIMAL (20,5), STOCH_K DECIMAL (20,5), STOCH_D DECIMAL (20,5), RSI DECIMAL (20,5));
+
+CREATE TABLE SECTOR (timestamp DATETIME NOT NULL PRIMARY KEY, time_period CHAR(10), information_technology DECIMAL (20,5), health_care DECIMAL (20,5), materials DECIMAL (20,5), financials DECIMAL (20,5), consumer_discretionary DECIMAL (20,5), industrials DECIMAL (20,5), consumer_staples DECIMAL (20,5), utilities DECIMAL (20,5), real_estate DECIMAL (20,5), energy DECIMAL (20,5), telecommunication_services DECIMAL (20,5));
+
+INSERT INTO gfs (localidad, fecha, pp) VALUES ('some_place', '2012-08-05 02:00', 1.6) ON DUPLICATE KEY UPDATE pp=VALUES(pp);
+
+GRANT ALL PRIVILEGES ON stock_data.* TO 'josiah'@'localhost';
+
+create unique index idx_timestamp_timeinterval on table(timestamp, time_period);
