@@ -50,11 +50,11 @@ class MLPRegressor:
     '''
     MLP Regression classifier
     '''
-    def __init__(self, train_x=None, train_y=None, test_x=None, test_y=None, hidden_layer_sizes=(100, ),
-            activation='relu', solver='adam', alpha=0.0001, batch_size='auto', learning_rate='constant',
-            learning_rate_init=0.001, power_t=0.5, max_iter=200, shuffle=True, random_state=None, tol=0.0001,
-            verbose=False, warm_start=False, momentum=0.9, nesterovs_momentum=True, early_stopping=False,
-            validation_fraction=0.1, beta_1=0.9, beta_2=0.999, epsilon=1e-08):
+    def __init__(self, train_x=None, train_y=None, test_x=None, test_y=None, params={'hidden_layer_sizes':(100, ),
+            'activation':'relu', 'solver':'adam', 'alpha':0.0001, 'batch_size':'auto', 'learning_rate':'constant',
+            'learning_rate_init':0.001, 'power_t':0.5, 'max_iter':200, 'shuffle':True, 'random_state':None, 'tol':0.0001,
+            'verbose':False, 'warm_start':False, 'momentum':0.9, 'nesterovs_momentum':True, 'early_stopping':False,
+            'validation_fraction':0.1, 'beta_1':0.9, 'beta_2':0.999, 'epsilon':1e-08}):
         '''
         initialize MLP Regression classifier
         '''
@@ -65,28 +65,7 @@ class MLPRegressor:
         self.test_y = test_y
 
         # Store the parameters for the model
-        self.params = {}
-        self.params['hidden_layer_sizes'] = hidden_layer_sizes
-        self.params['activation'] = activation
-        self.params['solver'] = solver
-        self.params['alpha'] = alpha
-        self.params['batch_size'] = batch_size
-        self.params['learning_rate'] = learning_rate
-        self.params['learning_rate_init'] = learning_rate_init
-        self.params['power_t'] = power_t
-        self.params['max_iter'] = max_iter
-        self.params['shuffle'] = shuffle
-        self.params['random_state'] = random_state
-        self.params['tol'] = tol
-        self.params['verbose'] = verbose
-        self.params['warm_start'] = warm_start
-        self.params['momentum'] = momentum
-        self.params['nesterovs_momentum'] = nesterovs_momentum
-        self.params['early_stopping'] = early_stopping
-        self.params['validation_fraction'] = validation_fraction
-        self.params['beta_1'] = beta_1
-        self.params['beta_2'] = beta_2
-        self.params['epsilon'] = epsilon
+        self.params = params
 
         # Create the model
         self.model = neural_network.MLPRegressor(hidden_layer_sizes=self.params['hidden_layer_sizes'], activation=self.params['activation'],
@@ -148,6 +127,7 @@ if __name__ == '__main__':
     model_db.store_cur_data([data.params, mlpr.params, len(data.train_x), len(data.test_x), len(data.train_x[0])], columns=['X_params', 'model_params', 'num_train', 'num_test', 'num_features'])
     hash_X = model_db.find_hash(fname_X)
     model_db.store_cur_data([hash_X], columns=['X_hash'])
+    model_db.store_cur_data([None], columns=['news_params'])
     serial_num = model_db.find_serial_number()
 
     # Store the model with the appended serial_number

@@ -6,8 +6,8 @@ import datetime
 import requests
 from datetime import timedelta
 
-class FeatureVector():
-    def __init__(self, days_out_prediction=7):
+class FeatureVectorizor():
+    def __init__(self, params):
         # Calculated variables
         self.feature_vector = []
         self.data = []
@@ -18,19 +18,17 @@ class FeatureVector():
         self.Y = {}
 
         # Variable to store all of the parameters for the combined feature vectors
-        self.params = {}
+        self.params = params
 
         # Custom variables set by the designer and used throughout the class
-        self.days_out_prediction = days_out_prediction
-        self.start_date = datetime.date.today()
-        #self.time_intervals = [1, 3, 7, 30, 90, 365]
-        self.time_intervals = [3, 7]
+        self.days_out_prediction = self.params['days_out_prediction']
+        self.start_date = self.params['start_date']
+        self.time_intervals_bool = self.params['time_intervals_bool']
+        if self.time_intervals_bool:
+            self.time_intervals = self.params['time_intervals']
+        else:
+            self.time_intervals = [1]
         self.sectors = ['information_technology', 'health_care', 'materials', 'financials', 'consumer_discretionary', 'industrials', 'consumer_staples', 'utilities', 'real_estate', 'energy', 'telecommunication_services']
-
-        self.params['sector_info'] = True
-        self.params['days_out_prediction'] = self.days_out_prediction
-        self.params['start_date'] = self.start_date
-        self.params['time_intervals'] = self.time_intervals
 
     def gen_feature_vector(self, table='aapl', start_date=None):
         # Reinitialize all of the variables
@@ -56,7 +54,8 @@ class FeatureVector():
                 self.feature_vector.append(data[0])
                 self.feature_vector.append(self.find_derivative(data=data, time_interval=time_interval))
                 self.format_feature_vector()
-        self.append_sector_info()
+        if self.params['sector_info']:
+            self.append_sector_info()
         self.find_output(table='aapl', time_interval=self.days_out_prediction)
         self.X[str(self.start_date)] = self.feature_vector
         self.Y[str(self.start_date)] = self.output
@@ -209,8 +208,13 @@ def main():
     args = parser.parse_args()
 
     # Initialize the model to generate each feature vector
-    days_out_prediction = 7
-    fv = FeatureVector(days_out_prediction=days_out_prediction)
+    params = {}
+    params['days_out_prediction'] = 7
+    params['start_date'] = datetime.date.today()
+    params['time_intervals_bool'] = False
+    params['time_intervals'] = [1, 3, 7, 30, 90, 365]
+    params['sector_info'] = False
+    fv = FeatureVectorizor(params=params)
 
     # Cycle through the number of days at the given step size to make X and Y
     for i in range(0, args.num_days):
@@ -222,8 +226,8 @@ def main():
     fv.dump_Y()
 
     # Store the feature vector to perform a prediction on the data for the current day
-    start_date = datetime.date.today()
-    fv.dump_feature_vector(table='aapl', start_date=start_date, num_days=days_out_prediction)
+    # start_date = datetime.date.today()
+    # fv.dump_feature_vector(table='aapl', start_date=start_date, num_days=days_out_prediction)
 
 if __name__ == '__main__':
     main()
