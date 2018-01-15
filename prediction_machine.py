@@ -6,7 +6,9 @@ import numpy as np
 import pandas as pd
 from datetime import timedelta
 from model_db import ModelDatabase
+from mlp_regression import Numbers
 from mlp_regression import MLPRegressor
+from feature_vector import FeatureVectorizor
 from linear_regression import LinearRegressor
 
 class Numbers:
@@ -50,6 +52,44 @@ class PredictionMachine:
         self.X = None
         self.cur_model = None
         self.cur_prices = {}
+
+    """
+    Function to automatically update all of the training files for the models
+    """
+    def update_models(self):
+        for key in self.model_db.keys():
+            model_params = self.model_db[key]['model_params']
+            X_params = self.model_db[key]['X_params']
+
+            # Number of data points
+            fv = FeatureVectorizor(params=X_params)
+            num_feat_vecs = self.model_db[key]['num_train'] + self.model_db[key]['num_test']
+            # Cycle through the number of days at the given step size to make X and Y
+            for i in range(0, num_feat_vecs):
+                feature_vector, output = fv.gen_feature_vector()
+                fv.start_date -= timedelta(days=self.model_db[key]['num_days'])
+
+            # Store the X and Y vectors into files
+            fv.dump_X()
+            fv.dump_Y()
+
+            # Open the new updated pickle file for training data
+            fname_X = "pickled_files/training_data/sd_X.pkl"
+            fname_Y = "pickled_files/training_data/sd_Y.pkl"
+            data = Numbers(fname_X=fname_X, fname_Y=fname_Y)
+
+            # Make a new MLP Regressor with the optimal parameters
+            mlpr = MLPRegressor(train_x=data.train_x, train_y=data.train_y, test_x=data.test_x, test_y=data.test_y, params=model_params)
+            mlpr.train()
+
+            # Store the model with the appended serial_number
+            serial_num = key
+            fname_model = "pickled_files/models/mlp_regression_" + str(serial_num) + ".pkl"
+            mlpr.dump(fname_model)
+
+            # Store the data that trained the model
+            data.dump_X(serial_num=serial_num)
+            data.dump_Y(serial_num=serial_num)
 
     """
     Function to cycle through each of the models and predict
@@ -209,6 +249,7 @@ if __name__ == '__main__':
     pm = PredictionMachine('aapl')
     pm.load()
     pm.load_model_db()
-    pm.predict_models()
+    pm.update_models()
+    #pm.predict_models()
     #pm.update_actual()
     #pm.export_excel()

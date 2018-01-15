@@ -127,7 +127,7 @@ if __name__ == '__main__':
     model_db.store_cur_data([data.params, mlpr.params, len(data.train_x), len(data.test_x), len(data.train_x[0])], columns=['X_params', 'model_params', 'num_train', 'num_test', 'num_features'])
     hash_X = model_db.find_hash(fname_X)
     model_db.store_cur_data([hash_X], columns=['X_hash'])
-    model_db.store_cur_data([None], columns=['news_params'])
+    model_db.store_cur_data([0], columns=['news_params'])
     serial_num = model_db.find_serial_number()
 
     # Store the model with the appended serial_number
