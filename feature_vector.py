@@ -199,6 +199,15 @@ class FeatureVectorizor():
         with open('pickled_files/training_data/' + fname + '.pkl', 'wb') as f:
             pickle.dump(self.Y, f)
 
+    def load_X(self, fname='sd_X'):
+        with open('pickled_files/training_data/' + fname + '.pkl', 'rb') as f:
+            data = pickle.load(f)
+            self.X, self.params = data[0], data[1]
+
+    def load_Y(self, fname='sd_Y'):
+        with open('pickled_files/training_data/' + fname + '.pkl', 'rb') as f:
+            self.Y = pickle.load(f)
+
 def main():
     parser = argparse.ArgumentParser(description='Feature Vector options')
     parser.add_argument('--num_days', type=int, default=4500,
@@ -212,7 +221,7 @@ def main():
     params['days_out_prediction'] = 7
     params['start_date'] = datetime.date.today()
     params['time_intervals_bool'] = False
-    params['time_intervals'] = [1, 3, 7, 30, 90, 365]
+    params['time_intervals'] = [1, 3, 7]
     params['sector_info'] = False
     fv = FeatureVectorizor(params=params)
 

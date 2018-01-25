@@ -20,14 +20,14 @@ class Numbers:
             fname_X = "pickled_files/training_data/sd_X.pkl"
         if fname_Y is None:
             fname_Y = "pickled_files/training_data/sd_Y.pkl"
-        X_dict, params = pickle.load(open(fname_X, 'rb'))
-        Y_dict = pickle.load(open(fname_Y, 'rb'))
+        self.X_dict, self.params = pickle.load(open(fname_X, 'rb'))
+        self.Y_dict = pickle.load(open(fname_Y, 'rb'))
         self.X = []
         self.Y = []
 
-        for key_X, key_Y in zip(X_dict.keys(), Y_dict.keys()):
-            self.X.append(X_dict[key_X])
-            self.Y.append(Y_dict[key_Y])
+        for key_X, key_Y in zip(self.X_dict.keys(), self.Y_dict.keys()):
+            self.X.append(self.X_dict[key_X])
+            self.Y.append(self.Y_dict[key_Y])
 
         training_data, test_data, training_labels, test_labels = train_test_split(self.X, self.Y, test_size=0.2, shuffle=False)
 
@@ -35,21 +35,20 @@ class Numbers:
         self.train_y = training_labels
         self.test_x = test_data
         self.test_y = test_labels
-        self.params = params
 
     def dump_X(self, fname='sd_X', serial_num=None):
         with open('pickled_files/training_data/' + fname + '_' + str(serial_num) + '.pkl', 'wb') as f:
-            pickle.dump([self.X, self.params], f)
+            pickle.dump([self.X_dict, self.params], f)
 
     def dump_Y(self, fname='sd_Y', serial_num=None):
         with open('pickled_files/training_data/' + fname + '_' + str(serial_num) + '.pkl', 'wb') as f:
-            pickle.dump(self.Y, f)
+            pickle.dump(self.Y_dict, f)
 
 class LinearRegressor:
     '''
     Linear Regression classifier
     '''
-    def __init__(self, train_x, train_y, test_x, test_y, fit_intercept=True, normalize=False, copy_X=True, n_jobs=1):
+    def __init__(self, train_x=None, train_y=None, test_x=None, test_y=None, params=None):
         '''
         initialize Linear Regression classifier
         '''
@@ -60,11 +59,14 @@ class LinearRegressor:
         self.test_y = test_y
 
         # Store the parameters for the model
-        self.params = {}
-        self.params['fit_intercept'] = fit_intercept
-        self.params['normalize'] = normalize
-        self.params['copy_X'] = copy_X
-        self.params['n_jobs'] = n_jobs
+        if params is None:
+            self.params = {}
+            self.params['fit_intercept'] = True
+            self.params['normalize'] = True
+            self.params['copy_X'] = True
+            self.params['n_jobs'] = 1
+        else:
+            self.params = params
 
         # Create the model
         self.model = linear_model.LinearRegression(fit_intercept=self.params['fit_intercept'], normalize=self.params['normalize'], copy_X=self.params['copy_X'], n_jobs=self.params['n_jobs'])
@@ -99,6 +101,34 @@ class LinearRegressor:
         """
         return self.model.predict(x)
 
+    def store_model_db(self, data, fname_X):
+        # Store the trained model into the database
+        model_db = ModelDatabase()
+        try:
+            model_db.load()
+        except:
+            pass
+        model_db.store_cur_data([data.params['days_out_prediction'], 'Linear Regressor'], columns=['num_days', 'type'])
+        model_db.store_cur_data([data.params, self.params, len(data.train_x), len(data.test_x), len(data.train_x[0])], columns=['X_params', 'model_params', 'num_train', 'num_test', 'num_features'])
+        hash_X = model_db.find_hash(fname_X)
+        model_db.store_cur_data([hash_X], columns=['X_hash'])
+        model_db.store_cur_data([0], columns=['news_params'])
+        serial_num = model_db.find_serial_number()
+
+        # Store the model with the appended serial_number
+        fname_model = "pickled_files/models/lr_regression_" + str(serial_num) + ".pkl"
+        self.dump(fname_model)
+        hash_model = model_db.find_hash(fname_model)
+        model_db.store_cur_data([hash_model], columns=['model_hash'])
+
+        # Store the data that trained the model
+        data.dump_X(serial_num=serial_num)
+        data.dump_Y(serial_num=serial_num)
+
+        # Store all the data in the data db and dump the db
+        model_db.store_data(serial_num)
+        model_db.dump()
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Linear Regression Classifier Options')
@@ -115,28 +145,8 @@ if __name__ == '__main__':
     lr = LinearRegressor(data.train_x[:args.limit], data.train_y[:args.limit], data.test_x, data.test_y)
     lr.train()
 
-    # Store the trained model into the database
-    model_db = ModelDatabase()
-    model_db.load()
-    model_db.store_cur_data([data.params['days_out_prediction'], 'Linear Regressor'], columns=['num_days', 'type'])
-    model_db.store_cur_data([data.params, lr.params, len(data.train_x), len(data.test_x), len(data.train_x[0])], columns=['X_params', 'model_params', 'num_train', 'num_test', 'num_features'])
-    hash_X = model_db.find_hash(fname_X)
-    model_db.store_cur_data([hash_X], columns=['X_hash'])
-    serial_num = model_db.find_serial_number()
-
-    # Store the model with the appended serial_number
-    fname_model = "pickled_files/models/linear_regression_" + str(serial_num) + ".pkl"
-    lr.dump(fname_model)
-    hash_model = model_db.find_hash(fname_model)
-    model_db.store_cur_data([hash_model], columns=['model_hash'])
-
-    # Store the data that trained the model
-    data.dump_X(serial_num=serial_num)
-    data.dump_Y(serial_num=serial_num)
-
-    # Store all the data in the data db and dump the db
-    model_db.store_data(serial_num)
-    model_db.dump()
+    # Store the model parameters into the model_db
+    lr.store_model_db(data, fname_X)
 
     # Analyze the model
     lr_acc = lr.evaluate()

@@ -15,13 +15,12 @@ class Numbers:
     """
     Class to load and store the generated feature vector
     """
-
     def __init__(self, fname_X=None, fname_Y=None):
         if fname_X is None:
             fname_X = "pickled_files/training_data/sd_X.pkl"
         if fname_Y is None:
             fname_Y = "pickled_files/training_data/sd_Y.pkl"
-        self.X_dict, params = pickle.load(open(fname_X, 'rb'))
+        self.X_dict, self.params = pickle.load(open(fname_X, 'rb'))
         self.Y_dict = pickle.load(open(fname_Y, 'rb'))
         self.X = []
         self.Y = []
@@ -36,7 +35,6 @@ class Numbers:
         self.train_y = training_labels
         self.test_x = test_data
         self.test_y = test_labels
-        self.params = params
 
     def dump_X(self, fname='sd_X', serial_num=None):
         with open('pickled_files/training_data/' + fname + '_' + str(serial_num) + '.pkl', 'wb') as f:
@@ -105,6 +103,34 @@ class MLPRegressor:
         """
         return self.model.predict(x)
 
+    def store_model_db(self, data, fname_X):
+        # Store the trained model into the database
+        model_db = ModelDatabase()
+        try:
+            model_db.load()
+        except:
+            pass
+        model_db.store_cur_data([data.params['days_out_prediction'], 'MLP Regressor'], columns=['num_days', 'type'])
+        model_db.store_cur_data([data.params, self.params, len(data.train_x), len(data.test_x), len(data.train_x[0])], columns=['X_params', 'model_params', 'num_train', 'num_test', 'num_features'])
+        hash_X = model_db.find_hash(fname_X)
+        model_db.store_cur_data([hash_X], columns=['X_hash'])
+        model_db.store_cur_data([0], columns=['news_params'])
+        serial_num = model_db.find_serial_number()
+
+        # Store the model with the appended serial_number
+        fname_model = "pickled_files/models/mlp_regression_" + str(serial_num) + ".pkl"
+        self.dump(fname_model)
+        hash_model = model_db.find_hash(fname_model)
+        model_db.store_cur_data([hash_model], columns=['model_hash'])
+
+        # Store the data that trained the model
+        data.dump_X(serial_num=serial_num)
+        data.dump_Y(serial_num=serial_num)
+
+        # Store all the data in the data db and dump the db
+        model_db.store_data(serial_num)
+        model_db.dump()
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Linear Regression Classifier Options')
@@ -120,29 +146,8 @@ if __name__ == '__main__':
     mlpr = MLPRegressor(train_x=data.train_x[:args.limit], train_y=data.train_y[:args.limit], test_x=data.test_x, test_y=data.test_y)
     mlpr.train()
 
-    # Store the trained model into the database
-    model_db = ModelDatabase()
-    model_db.load()
-    model_db.store_cur_data([data.params['days_out_prediction'], 'MLP Regressor'], columns=['num_days', 'type'])
-    model_db.store_cur_data([data.params, mlpr.params, len(data.train_x), len(data.test_x), len(data.train_x[0])], columns=['X_params', 'model_params', 'num_train', 'num_test', 'num_features'])
-    hash_X = model_db.find_hash(fname_X)
-    model_db.store_cur_data([hash_X], columns=['X_hash'])
-    model_db.store_cur_data([0], columns=['news_params'])
-    serial_num = model_db.find_serial_number()
-
-    # Store the model with the appended serial_number
-    fname_model = "pickled_files/models/mlp_regression_" + str(serial_num) + ".pkl"
-    mlpr.dump(fname_model)
-    hash_model = model_db.find_hash(fname_model)
-    model_db.store_cur_data([hash_model], columns=['model_hash'])
-
-    # Store the data that trained the model
-    data.dump_X(serial_num=serial_num)
-    data.dump_Y(serial_num=serial_num)
-
-    # Store all the data in the data db and dump the db
-    model_db.store_data(serial_num)
-    model_db.dump()
+    # Store the model parameters into the model_db
+    mlpr.store_model_db(data, fname_X)
 
     # Analyze the model
     mlpr_acc = mlpr.evaluate()

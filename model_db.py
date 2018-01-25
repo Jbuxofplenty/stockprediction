@@ -35,6 +35,12 @@ class ModelDatabase:
             self.cur_model_params[col] = datum
 
     """
+    Function to delete an entry in the database given a key
+    """
+    def del_item(self, key=None):
+        del self.db[key]
+
+    """
     Function to see if the cur_model_params variable is completely filled
     """
     def is_cur_data_filled(self):
@@ -99,5 +105,6 @@ class ModelDatabase:
 if __name__ == '__main__':
     model_db = ModelDatabase()
     model_db.load()
-    model_db.update_models()
+    # Put commands to adjust ModelDatabase
+    
     model_db.dump()

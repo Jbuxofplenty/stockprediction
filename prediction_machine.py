@@ -10,6 +10,7 @@ from mlp_regression import Numbers
 from mlp_regression import MLPRegressor
 from feature_vector import FeatureVectorizor
 from linear_regression import LinearRegressor
+from sklearn.model_selection import train_test_split
 
 class Numbers:
     """
@@ -20,14 +21,14 @@ class Numbers:
             fname_X = "pickled_files/training_data/sd_X.pkl"
         if fname_Y is None:
             fname_Y = "pickled_files/training_data/sd_Y.pkl"
-        X_dict, params = pickle.load(open(fname_X, 'rb'))
-        Y_dict = pickle.load(open(fname_Y, 'rb'))
+        self.X_dict, self.params = pickle.load(open(fname_X, 'rb'))
+        self.Y_dict = pickle.load(open(fname_Y, 'rb'))
         self.X = []
         self.Y = []
 
-        for key_X, key_Y in zip(X_dict.keys(), Y_dict.keys()):
-            self.X.append(X_dict[key_X])
-            self.Y.append(Y_dict[key_Y])
+        for key_X, key_Y in zip(self.X_dict.keys(), self.Y_dict.keys()):
+            self.X.append(self.X_dict[key_X])
+            self.Y.append(self.Y_dict[key_Y])
 
         training_data, test_data, training_labels, test_labels = train_test_split(self.X, self.Y, test_size=0.2, shuffle=False)
 
@@ -35,7 +36,14 @@ class Numbers:
         self.train_y = training_labels
         self.test_x = test_data
         self.test_y = test_labels
-        self.params = params
+
+    def dump_X(self, fname='sd_X', serial_num=None):
+        with open('pickled_files/training_data/' + fname + '_' + str(serial_num) + '.pkl', 'wb') as f:
+            pickle.dump([self.X_dict, self.params], f)
+
+    def dump_Y(self, fname='sd_Y', serial_num=None):
+        with open('pickled_files/training_data/' + fname + '_' + str(serial_num) + '.pkl', 'wb') as f:
+            pickle.dump(self.Y_dict, f)
 
 class PredictionMachine:
     """
@@ -56,18 +64,30 @@ class PredictionMachine:
     """
     Function to automatically update all of the training files for the models
     """
-    def update_models(self):
-        for key in self.model_db.keys():
+    def update_models(self, keys=None):
+        if keys is None:
+            keys = self.model_db.keys()
+        for key in keys:
+            serial_num = key
             model_params = self.model_db[key]['model_params']
             X_params = self.model_db[key]['X_params']
 
             # Number of data points
             fv = FeatureVectorizor(params=X_params)
-            num_feat_vecs = self.model_db[key]['num_train'] + self.model_db[key]['num_test']
+            fname = 'sd_X_' + str(key)
+            fv.load_X(fname=fname)
+            fname = 'sd_Y_' + str(key)
+            fv.load_Y(fname=fname)
             # Cycle through the number of days at the given step size to make X and Y
-            for i in range(0, num_feat_vecs):
+            find_value = True
+            while(find_value):
+                try:
+                    fv.X[str(fv.start_date)]
+                    find_value = False
+                except:
+                    find_value = True
                 feature_vector, output = fv.gen_feature_vector()
-                fv.start_date -= timedelta(days=self.model_db[key]['num_days'])
+                fv.start_date -= timedelta(days=1)
 
             # Store the X and Y vectors into files
             fv.dump_X()
@@ -79,13 +99,20 @@ class PredictionMachine:
             data = Numbers(fname_X=fname_X, fname_Y=fname_Y)
 
             # Make a new MLP Regressor with the optimal parameters
-            mlpr = MLPRegressor(train_x=data.train_x, train_y=data.train_y, test_x=data.test_x, test_y=data.test_y, params=model_params)
-            mlpr.train()
+            if self.model_db[key]['type'] == 'Linear Regressor':
+                lr = LinearRegressor(train_x=data.train_x, train_y=data.train_y, test_x=data.test_x, test_y=data.test_y, params=model_params)
+                lr.train()
+            elif self.model_db[key]['type'] == 'MLP Regressor':
+                mlpr = MLPRegressor(train_x=data.train_x, train_y=data.train_y, test_x=data.test_x, test_y=data.test_y, params=model_params)
+                mlpr.train()
 
             # Store the model with the appended serial_number
-            serial_num = key
-            fname_model = "pickled_files/models/mlp_regression_" + str(serial_num) + ".pkl"
-            mlpr.dump(fname_model)
+            if self.model_db[key]['type'] == 'Linear Regressor':
+                fname_model = "pickled_files/models/lr_regression_" + str(serial_num) + ".pkl"
+                lr.dump(fname_model)
+            elif self.model_db[key]['type'] == 'MLP Regressor':
+                fname_model = "pickled_files/models/mlp_regression_" + str(serial_num) + ".pkl"
+                mlpr.dump(fname_model)
 
             # Store the data that trained the model
             data.dump_X(serial_num=serial_num)
@@ -94,17 +121,24 @@ class PredictionMachine:
     """
     Function to cycle through each of the models and predict
     """
-    def predict_models(self):
-        for key in self.model_db.keys():
+    def predict_models(self, keys=None):
+        if keys is None:
+            keys = self.model_db.keys()
+        for key in keys:
             if self.model_db[key]['type'] == 'MLP Regressor':
                 fname = "pickled_files/models/mlp_regression_" + str(key) + ".pkl"
+                model = LinearRegressor()
             elif self.model_db[key]['type'] == 'Linear Regressor':
-                fname = "pickled_files/models/linear_regression_" + str(key) + ".pkl"
-            model = MLPRegressor()
+                fname = "pickled_files/models/lr_regression_" + str(key) + ".pkl"
+                model = MLPRegressor()
             self.cur_model = model.load(fname)
             self.X = self.load_X(key)
             self.predict_prices(key)
-            self.df[str(key)] = pd.Series(self.cur_prices)
+            for price_key in self.cur_prices.keys():
+                if not str(key) in self.df.index:
+                    self.df[str(key)] = pd.Series(self.cur_prices)
+                if not price_key in self.df[str(key)].index:
+                    self.df[str(key)][price_key] = self.cur_prices[price_key]
 
     """
     Function to store a model's prices specified by the serial number
@@ -119,21 +153,10 @@ class PredictionMachine:
             if i >= len(pred_rng) - 2:
                 continue
             day_feat_vec = day - days_out_prediction
-            print(day_feat_vec)
-            day_formatted1 = pd.to_datetime(str(day_feat_vec).split()[0])
-            day_formatted = datetime.datetime.strptime(str(day_feat_vec).split()[0], '%Y-%m-%d')
-            feat_vec = self.X[str(day_feat_vec).split()[0]]
+            day_formatted = pd.to_datetime(str(day_feat_vec).split()[0])
+            feat_vec = self.X[str(day_formatted).split()[0]]
             prediction = self.cur_model.predict(np.reshape(feat_vec, (1, -1)))
-            print(prediction[0])
-            try:
-                print(self.df.get_value(day_formatted1, serial_num))
-                print(self.df.index)
-                print(self.df[day_formatted1][serial_num])
-                print(prediction)
-            except:
-                self.cur_prices[day] = prediction[0]
-        print(self.cur_prices)
-        print(len(self.cur_prices.keys()))
+            self.cur_prices[day] = prediction[0]
 
     """
     Function to load X which contains the feature vectors
@@ -204,7 +227,7 @@ class PredictionMachine:
     """
     def load(self, filename=None):
         if filename == None:
-            self.df = pickle.load(open('pickled_files/prediction_machine/predictions.pkl', 'rb'))
+            self.df = pickle.load(open('pickled_files/prediction_machine/predictions_' + self.table + '.pkl', 'rb'))
             return self.df
         else:
             self.df = pickle.load(open(filename, 'rb'))
@@ -215,7 +238,7 @@ class PredictionMachine:
     """
     def dump(self, filename=None):
         if filename == None:
-            pickle.dump(self.df, open('pickled_files/prediction_machine/predictions.pkl', 'wb'))
+            pickle.dump(self.df, open('pickled_files/prediction_machine/predictions_' + self.table + '.pkl', 'wb'))
         else:
             pickle.dump(self.df, open(filename, 'wb'))
 
@@ -249,7 +272,9 @@ if __name__ == '__main__':
     pm = PredictionMachine('aapl')
     pm.load()
     pm.load_model_db()
+    print(pm.model_db)
     pm.update_models()
-    #pm.predict_models()
-    #pm.update_actual()
-    #pm.export_excel()
+    pm.update_actual()
+    pm.predict_models()
+    pm.dump()
+    pm.export_excel()
