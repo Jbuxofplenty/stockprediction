@@ -29,8 +29,9 @@ class FeatureVectorizor():
         else:
             self.time_intervals = [1]
         self.sectors = ['information_technology', 'health_care', 'materials', 'financials', 'consumer_discretionary', 'industrials', 'consumer_staples', 'utilities', 'real_estate', 'energy', 'telecommunication_services']
+        self.table = self.params['table']
 
-    def gen_feature_vector(self, table='aapl', start_date=None):
+    def gen_feature_vector(self, start_date=None):
         # Reinitialize all of the variables
         self.feature_vector = []
         self.data = []
@@ -43,12 +44,12 @@ class FeatureVectorizor():
             timestamps = self.create_timestamp_list(start_date=self.start_date, time_interval=time_interval)
             data = []
             for timestamp in timestamps:
-                query = self.create_query(table=table, timestamp=timestamp)
+                query = self.create_query(table=self.table, timestamp=timestamp)
                 retrieved_data = None
                 while retrieved_data == None:
                     retrieved_data = self.db_retrieve_data(query=query)
                     timestamp -= timedelta(days=1)
-                    query = self.create_query(table=table, timestamp=timestamp)
+                    query = self.create_query(table=self.table, timestamp=timestamp)
                 data.append(retrieved_data)
             if time_interval == 1:
                 self.feature_vector.append(data[0])
@@ -56,7 +57,7 @@ class FeatureVectorizor():
                 self.format_feature_vector()
         if self.params['sector_info']:
             self.append_sector_info()
-        self.find_output(table='aapl', time_interval=self.days_out_prediction)
+        self.find_output(table=self.table, time_interval=self.days_out_prediction)
         self.X[str(self.start_date)] = self.feature_vector
         self.Y[str(self.start_date)] = self.output
         return self.feature_vector, self.output
@@ -180,59 +181,69 @@ class FeatureVectorizor():
                         self.gen_feature_vector(table=table, start_date=start_date)
                         pred_f.write(str(i+1) + '.  ' + str(start_date + timedelta(days=self.days_out_prediction)) + ' - \n')
                         start_date -= timedelta(days=1)
-                        with open('pickled_files/feature_vecs/' + fname + '_' + str(i) + '.pkl', 'wb') as f:
+                        with open('pickled_files/feature_vecs/' + fname + '_' + self.table + '_' + str(i) + '.pkl', 'wb') as f:
                             pickle.dump(self.feature_vector, f)
             start_date += timedelta(days=num_days)
             self.gen_feature_vector(table=table, start_date=start_date)
-        with open('pickled_files/feature_vecs/' + fname + '.pkl', 'wb') as f:
+        with open('pickled_files/feature_vecs/' + fname + '_' + self.table + '.pkl', 'wb') as f:
             pickle.dump(self.feature_vector, f)
 
     def load_feature_vector(self, fname='sd_feature_vec'):
-        with open('pickled_files/feature_vecs/' + fname + '.pkl', 'rb') as f:
+        with open('pickled_files/feature_vecs/' + fname + '_' + self.table + '.pkl', 'rb') as f:
             self.feature_vector = pickle.load(f)
 
     def dump_X(self, fname='sd_X'):
-        with open('pickled_files/training_data/' + fname + '.pkl', 'wb') as f:
+        with open('pickled_files/training_data/' + fname + '_' + self.table + '.pkl', 'wb') as f:
             pickle.dump([self.X, self.params], f)
 
     def dump_Y(self, fname='sd_Y'):
-        with open('pickled_files/training_data/' + fname + '.pkl', 'wb') as f:
+        with open('pickled_files/training_data/' + fname + '_' + self.table + '.pkl', 'wb') as f:
             pickle.dump(self.Y, f)
 
     def load_X(self, fname='sd_X'):
-        with open('pickled_files/training_data/' + fname + '.pkl', 'rb') as f:
+        with open('pickled_files/training_data/' + fname + '_' + self.table + '.pkl', 'rb') as f:
             data = pickle.load(f)
             self.X, self.params = data[0], data[1]
 
     def load_Y(self, fname='sd_Y'):
-        with open('pickled_files/training_data/' + fname + '.pkl', 'rb') as f:
+        with open('pickled_files/training_data/' + fname + '_' + self.table + '.pkl', 'rb') as f:
             self.Y = pickle.load(f)
+
+    def load_tables(self, fname='pickled_files/misc/symbols'):
+        with open(fname + '.pkl', 'rb') as f:
+            self.tables = pickle.load(f)
 
 def main():
     parser = argparse.ArgumentParser(description='Feature Vector options')
-    parser.add_argument('--num_days', type=int, default=4500,
+    parser.add_argument('--num_days', type=int, default=2500,
                         help="Number of days to make a feature vector for (length of X)")
     parser.add_argument('--step_size', type=int, default=1,
                         help="Step size of the days")
     args = parser.parse_args()
 
-    # Initialize the model to generate each feature vector
-    params = {}
-    params['days_out_prediction'] = 7
-    params['start_date'] = datetime.date.today()
-    params['time_intervals_bool'] = False
-    params['time_intervals'] = [1, 3, 7]
-    params['sector_info'] = False
-    fv = FeatureVectorizor(params=params)
+    # Load the symbols that are stored from the original stock_price_data.py script
+    fname='pickled_files/misc/symbols'
+    with open(fname + '.pkl', 'rb') as f:
+        tables = pickle.load(f)
+        for table in tables:
+            # Initialize the model to generate each feature vector
+            params = {}
+            params['days_out_prediction'] = 7
+            params['start_date'] = datetime.date.today()
+            params['time_intervals_bool'] = False
+            params['time_intervals'] = [1]
+            params['sector_info'] = False
+            params['table'] = table
+            fv = FeatureVectorizor(params=params)
 
-    # Cycle through the number of days at the given step size to make X and Y
-    for i in range(0, args.num_days):
-        feature_vector, output = fv.gen_feature_vector()
-        fv.start_date -= timedelta(days=args.step_size)
+            # Cycle through the number of days at the given step size to make X and Y
+            for i in range(0, args.num_days):
+                feature_vector, output = fv.gen_feature_vector()
+                fv.start_date -= timedelta(days=args.step_size)
 
-    # Store the X and Y vectors into files
-    fv.dump_X()
-    fv.dump_Y()
+            # Store the X and Y vectors into files
+            fv.dump_X()
+            fv.dump_Y()
 
     # Store the feature vector to perform a prediction on the data for the current day
     # start_date = datetime.date.today()

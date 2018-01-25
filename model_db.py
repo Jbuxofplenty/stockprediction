@@ -41,6 +41,15 @@ class ModelDatabase:
         del self.db[key]
 
     """
+    Function to delete all the entries in the database
+    """
+    def del_all_items(self):
+        d = dict(self.db)
+        keys = d.keys()
+        for key in keys:
+            del self.db[key]
+
+    """
     Function to see if the cur_model_params variable is completely filled
     """
     def is_cur_data_filled(self):
@@ -57,7 +66,7 @@ class ModelDatabase:
         for key in self.db.keys():
             is_same = True
             for col, datum in zip(self.cur_model_params.keys(), self.cur_model_params.values()):
-                if self.db[key][col] != datum and col != 'model_hash':
+                if self.db[key][col] != datum and col != 'model_hash' and col != 'X_hash':
                     is_same = False
             if is_same:
                 return new_index
@@ -106,5 +115,6 @@ if __name__ == '__main__':
     model_db = ModelDatabase()
     model_db.load()
     # Put commands to adjust ModelDatabase
-    
+    # model_db.del_all_items()
+    print(model_db.db)
     model_db.dump()

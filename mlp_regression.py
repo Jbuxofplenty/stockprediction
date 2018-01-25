@@ -37,11 +37,11 @@ class Numbers:
         self.test_y = test_labels
 
     def dump_X(self, fname='sd_X', serial_num=None):
-        with open('pickled_files/training_data/' + fname + '_' + str(serial_num) + '.pkl', 'wb') as f:
+        with open('pickled_files/training_data/' + fname + '_' + str(serial_num) + '_' + self.params['table'] + '.pkl', 'wb') as f:
             pickle.dump([self.X_dict, self.params], f)
 
     def dump_Y(self, fname='sd_Y', serial_num=None):
-        with open('pickled_files/training_data/' + fname + '_' + str(serial_num) + '.pkl', 'wb') as f:
+        with open('pickled_files/training_data/' + fname + '_' + str(serial_num) + '_' + self.params['table'] + '.pkl', 'wb') as f:
             pickle.dump(self.Y_dict, f)
 
 class MLPRegressor:
@@ -118,7 +118,7 @@ class MLPRegressor:
         serial_num = model_db.find_serial_number()
 
         # Store the model with the appended serial_number
-        fname_model = "pickled_files/models/mlp_regression_" + str(serial_num) + ".pkl"
+        fname_model = "pickled_files/models/mlp_regression_" + str(serial_num) + "_" + data.params['table'] + ".pkl"
         self.dump(fname_model)
         hash_model = model_db.find_hash(fname_model)
         model_db.store_cur_data([hash_model], columns=['model_hash'])
@@ -138,35 +138,40 @@ if __name__ == '__main__':
                         help='Restrict training to this many examples')
     args = parser.parse_args()
 
-    fname_X = "pickled_files/training_data/sd_X.pkl"
-    fname_Y = "pickled_files/training_data/sd_Y.pkl"
-    data = Numbers(fname_X=fname_X, fname_Y=fname_Y)
+    # Load the symbols that are stored from the original stock_price_data.py script
+    fname='pickled_files/misc/symbols'
+    with open(fname + '.pkl', 'rb') as f:
+        tables = pickle.load(f)
+        for table in tables:
+            fname_X = "pickled_files/training_data/sd_X_" + table + ".pkl"
+            fname_Y = "pickled_files/training_data/sd_Y_" + table + ".pkl"
+            data = Numbers(fname_X=fname_X, fname_Y=fname_Y)
 
-    # Perform cross validation on each of the optimal models and show the accuracy
-    mlpr = MLPRegressor(train_x=data.train_x[:args.limit], train_y=data.train_y[:args.limit], test_x=data.test_x, test_y=data.test_y)
-    mlpr.train()
+            # Perform cross validation on each of the optimal models and show the accuracy
+            mlpr = MLPRegressor(train_x=data.train_x[:args.limit], train_y=data.train_y[:args.limit], test_x=data.test_x, test_y=data.test_y)
+            mlpr.train()
 
-    # Store the model parameters into the model_db
-    mlpr.store_model_db(data, fname_X)
+            # Store the model parameters into the model_db
+            mlpr.store_model_db(data, fname_X)
 
-    # Analyze the model
-    mlpr_acc = mlpr.evaluate()
-    print(mlpr_acc)
-
-    # Make predictions using the testing set
-    pred_y = mlpr.predict(data.test_x)
-
-    # The coefficients
-    # print('Coefficients: \n', mlpr.model.coefs_)
-    # The mean squared error
-    print("Mean squared error: %.2f" % mean_squared_error(data.test_y, pred_y))
-    # Explained variance score: 1 is perfect prediction
-    print('Variance score: %.2f' % r2_score(data.test_y, pred_y))
-
-    # Plot outputs
-    x = []
-    for i, feat_vec in enumerate(data.test_x):
-        x.append(i)
-    plt.scatter(x, data.test_y,  color='black')
-    plt.plot(x, pred_y, color='blue', linewidth=3)
-    plt.show()
+    # # Analyze the model
+    # mlpr_acc = mlpr.evaluate()
+    # print(mlpr_acc)
+    #
+    # # Make predictions using the testing set
+    # pred_y = mlpr.predict(data.test_x)
+    #
+    # # The coefficients
+    # # print('Coefficients: \n', mlpr.model.coefs_)
+    # # The mean squared error
+    # print("Mean squared error: %.2f" % mean_squared_error(data.test_y, pred_y))
+    # # Explained variance score: 1 is perfect prediction
+    # print('Variance score: %.2f' % r2_score(data.test_y, pred_y))
+    #
+    # # Plot outputs
+    # x = []
+    # for i, feat_vec in enumerate(data.test_x):
+    #     x.append(i)
+    # plt.scatter(x, data.test_y,  color='black')
+    # plt.plot(x, pred_y, color='blue', linewidth=3)
+    # plt.show()

@@ -2,6 +2,7 @@ import pickle
 import hashlib
 import MySQLdb
 import datetime
+import argparse
 import numpy as np
 import pandas as pd
 from datetime import timedelta
@@ -38,11 +39,11 @@ class Numbers:
         self.test_y = test_labels
 
     def dump_X(self, fname='sd_X', serial_num=None):
-        with open('pickled_files/training_data/' + fname + '_' + str(serial_num) + '.pkl', 'wb') as f:
+        with open('pickled_files/training_data/' + fname + '_' + str(serial_num) + '_' + self.params['table'] + '.pkl', 'wb') as f:
             pickle.dump([self.X_dict, self.params], f)
 
     def dump_Y(self, fname='sd_Y', serial_num=None):
-        with open('pickled_files/training_data/' + fname + '_' + str(serial_num) + '.pkl', 'wb') as f:
+        with open('pickled_files/training_data/' + fname + '_' + str(serial_num) + '_' + self.params['table'] + '.pkl', 'wb') as f:
             pickle.dump(self.Y_dict, f)
 
 class PredictionMachine:
@@ -86,16 +87,16 @@ class PredictionMachine:
                     find_value = False
                 except:
                     find_value = True
-                feature_vector, output = fv.gen_feature_vector()
-                fv.start_date -= timedelta(days=1)
+                    feature_vector, output = fv.gen_feature_vector()
+                    fv.start_date -= timedelta(days=1)
 
             # Store the X and Y vectors into files
             fv.dump_X()
             fv.dump_Y()
 
             # Open the new updated pickle file for training data
-            fname_X = "pickled_files/training_data/sd_X.pkl"
-            fname_Y = "pickled_files/training_data/sd_Y.pkl"
+            fname_X = "pickled_files/training_data/sd_X_" + X_params['table'] + ".pkl"
+            fname_Y = "pickled_files/training_data/sd_Y_" + X_params['table'] + ".pkl"
             data = Numbers(fname_X=fname_X, fname_Y=fname_Y)
 
             # Make a new MLP Regressor with the optimal parameters
@@ -108,10 +109,10 @@ class PredictionMachine:
 
             # Store the model with the appended serial_number
             if self.model_db[key]['type'] == 'Linear Regressor':
-                fname_model = "pickled_files/models/lr_regression_" + str(serial_num) + ".pkl"
+                fname_model = "pickled_files/models/lr_regression_" + str(serial_num) + "_" + X_params['table'] + ".pkl"
                 lr.dump(fname_model)
             elif self.model_db[key]['type'] == 'MLP Regressor':
-                fname_model = "pickled_files/models/mlp_regression_" + str(serial_num) + ".pkl"
+                fname_model = "pickled_files/models/mlp_regression_" + str(serial_num) + "_" + X_params['table'] + ".pkl"
                 mlpr.dump(fname_model)
 
             # Store the data that trained the model
@@ -125,20 +126,21 @@ class PredictionMachine:
         if keys is None:
             keys = self.model_db.keys()
         for key in keys:
-            if self.model_db[key]['type'] == 'MLP Regressor':
-                fname = "pickled_files/models/mlp_regression_" + str(key) + ".pkl"
-                model = LinearRegressor()
-            elif self.model_db[key]['type'] == 'Linear Regressor':
-                fname = "pickled_files/models/lr_regression_" + str(key) + ".pkl"
-                model = MLPRegressor()
-            self.cur_model = model.load(fname)
-            self.X = self.load_X(key)
-            self.predict_prices(key)
-            for price_key in self.cur_prices.keys():
-                if not str(key) in self.df.index:
-                    self.df[str(key)] = pd.Series(self.cur_prices)
-                if not price_key in self.df[str(key)].index:
-                    self.df[str(key)][price_key] = self.cur_prices[price_key]
+            if self.model_db[key]['X_params']['table'] == self.table:
+                if self.model_db[key]['type'] == 'MLP Regressor':
+                    fname = "pickled_files/models/mlp_regression_" + str(key) + "_" + self.table + ".pkl"
+                    model = LinearRegressor()
+                elif self.model_db[key]['type'] == 'Linear Regressor':
+                    fname = "pickled_files/models/lr_regression_" + str(key) + "_" + self.table + ".pkl"
+                    model = MLPRegressor()
+                self.cur_model = model.load(fname)
+                self.X = self.load_X(key)
+                self.predict_prices(key)
+                for price_key in self.cur_prices.keys():
+                    if not str(key) in self.df.index:
+                        self.df[str(key)] = pd.Series(self.cur_prices)
+                    if not price_key in self.df[str(key)].index:
+                        self.df[str(key)][price_key] = self.cur_prices[price_key]
 
     """
     Function to store a model's prices specified by the serial number
@@ -162,7 +164,7 @@ class PredictionMachine:
     Function to load X which contains the feature vectors
     """
     def load_X(self, serial_num):
-        self.X, params = pickle.load(open("pickled_files/training_data/sd_X_" + str(serial_num) + ".pkl", 'rb'))
+        self.X, params = pickle.load(open("pickled_files/training_data/sd_X_" + str(serial_num) + "_" + self.table + ".pkl", 'rb'))
         return self.X
 
     """
@@ -249,7 +251,7 @@ class PredictionMachine:
         start_date = str(datetime.date.today())
         start_date.replace('/', '_')
         if filename == None:
-            writer = pd.ExcelWriter('analysis/predictions_' + start_date + '.xlsx')
+            writer = pd.ExcelWriter('analysis/' + self.table + '_predictions_' + start_date + '.xlsx')
             self.df.to_excel(writer, 'Predictions')
             writer.save()
         else:
@@ -264,17 +266,25 @@ class PredictionMachine:
         start_date = str(datetime.date.today())
         start_date.replace('/', '_')
         if filename == None:
-            pickle.dump(self.df, open('pickled_files/prediction_machine/predictions_' + start_date + '.pkl', 'wb'))
+            pickle.dump(self.df, open('pickled_files/prediction_machine/' + self.table + '_predictions_' + start_date + '.pkl', 'wb'))
         else:
             pickle.dump(self.df, open(filename, 'wb'))
 
 if __name__ == '__main__':
-    pm = PredictionMachine('aapl')
-    pm.load()
-    pm.load_model_db()
-    print(pm.model_db)
-    pm.update_models()
-    pm.update_actual()
-    pm.predict_models()
-    pm.dump()
-    pm.export_excel()
+    # Load the symbols that are stored from the original stock_price_data.py script
+    fname='pickled_files/misc/symbols'
+    with open(fname + '.pkl', 'rb') as f:
+        tables = pickle.load(f)
+        for table in tables:
+            pm = PredictionMachine(table)
+            try:
+                pm.load()
+            except:
+                pass
+            pm.load_model_db()
+            pm.update_models()
+            pm.update_actual()
+            pm.predict_models()
+            pm.dump()
+            pm.export_excel()
+        print(pm.model_db)
