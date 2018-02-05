@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 from datetime import timedelta
 from selenium import webdriver
+from textblob import TextBlob
 
 class Crawl():
     def __init__(self, params, start_date=None, end_date=None):
@@ -36,13 +37,22 @@ class Crawl():
     Function to retrieve the news articles for a keyword, limit the news articles
     """
     def retrieve_articles(self, keyword, limit=10):
-        # response = requests.get(url, headers=self.header)
-        # content = response.content.decode('utf-8')
-        #
-        # matches = re.findall('<a href="([^ ]*)">(.*)<\/a>', content)
-        # for match in matches:
-        #     if (match is not None) & (len(match[1]) > 0):
-        pass
+        argument = ""
+        for i, word in enumerate(keyword.split()):
+            if i == len(keyword)-1:
+                argument += word
+            else:
+                argument += word +"%20"
+        url = ('https://news.google.com/news?q=' + argument + '&output=rss')
+        print(url)
+        response = requests.get(url, headers=self.header)
+        content = response.content.decode('utf-8')
+        print(content)
+
+        matches = re.findall('<a href="([^ ]*)">(.*)<\/a>', content)
+        for match in matches:
+            if (match is not None) & (len(match[1]) > 0):
+                pass
 
     """
     Function to load the stocks located in csv files, also loads the first keyword
@@ -100,7 +110,7 @@ def main():
         params = {'sa':False}
         newsCrawler = Crawl(params)
         stocks = newsCrawler.load_stocks()
-        stocks = ['AAPL']
+        stocks = ['AAPL', 'fix', 'cmg']
         for stock in stocks:
             keywords = newsCrawler.keywords[stock]
             for keyword in keywords:

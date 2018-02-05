@@ -37,11 +37,11 @@ class Numbers:
         self.test_y = test_labels
 
     def dump_X(self, fname='sd_X', serial_num=None):
-        with open('pickled_files/training_data/' + fname + '_' + str(serial_num) + '_' + self.params['table'] + '.pkl', 'wb') as f:
+        with open('pickled_files//training_data//' + fname + '_' + str(serial_num) + '_' + str(self.params['table']) + '.pkl', 'wb') as f:
             pickle.dump([self.X_dict, self.params], f)
 
     def dump_Y(self, fname='sd_Y', serial_num=None):
-        with open('pickled_files/training_data/' + fname + '_' + str(serial_num) + '_' + self.params['table'] + '.pkl', 'wb') as f:
+        with open('pickled_files//training_data//' + fname + '_' + str(serial_num) + '_' + str(self.params['table']) + '.pkl', 'wb') as f:
             pickle.dump(self.Y_dict, f)
 
 class LinearRegressor:

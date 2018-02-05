@@ -3,6 +3,7 @@ import hashlib
 import MySQLdb
 import datetime
 import argparse
+import glob, os
 import numpy as np
 import pandas as pd
 from datetime import timedelta
@@ -39,11 +40,11 @@ class Numbers:
         self.test_y = test_labels
 
     def dump_X(self, fname='sd_X', serial_num=None):
-        with open('pickled_files/training_data/' + fname + '_' + str(serial_num) + '_' + self.params['table'] + '.pkl', 'wb') as f:
+        with open('pickled_files/training_data/' + fname + '_' + str(serial_num) + '_' + str(self.params['table']) + '.pkl', 'wb') as f:
             pickle.dump([self.X_dict, self.params], f)
 
     def dump_Y(self, fname='sd_Y', serial_num=None):
-        with open('pickled_files/training_data/' + fname + '_' + str(serial_num) + '_' + self.params['table'] + '.pkl', 'wb') as f:
+        with open('pickled_files/training_data/' + fname + '_' + str(serial_num) + '_' + str(self.params['table']) + '.pkl', 'wb') as f:
             pickle.dump(self.Y_dict, f)
 
 class PredictionMachine:
@@ -54,6 +55,7 @@ class PredictionMachine:
         self.max_day_pred = 280
         self.start_date = str(datetime.date.today())
         self.end_date = str(datetime.date.today() + timedelta(days=self.max_day_pred))
+        self.str_rng = []
         self.rng = pd.date_range(start=self.start_date, end=self.end_date, freq='D')
         self.df = pd.DataFrame(columns=['actual'], index=self.rng)
         self.table = stock
@@ -62,6 +64,9 @@ class PredictionMachine:
         self.cur_model = None
         self.cur_prices = {}
 
+        # store the str range for indexing
+        for date in self.rng:
+            self.str_rng.append(date.strftime('%m-%d-%Y'))
     """
     Function to automatically update all of the training files for the models
     """
@@ -81,6 +86,7 @@ class PredictionMachine:
             fv.load_Y(fname=fname)
             # Cycle through the number of days at the given step size to make X and Y
             find_value = True
+            fv.start_date = datetime.date.today()
             while(find_value):
                 try:
                     fv.X[str(fv.start_date)]
@@ -136,11 +142,19 @@ class PredictionMachine:
                 self.cur_model = model.load(fname)
                 self.X = self.load_X(key)
                 self.predict_prices(key)
+                # Check to make sure the
+                if not str(key) in self.df.columns:
+                    self.df[str(key)] = pd.Series(self.cur_prices)
                 for price_key in self.cur_prices.keys():
-                    if not str(key) in self.df.index:
-                        self.df[str(key)] = pd.Series(self.cur_prices)
-                    if not price_key in self.df[str(key)].index:
+                    if price_key in self.df[str(key)].index:
+                        if pd.isnull(self.df[str(key)][price_key]):
+                            self.df[str(key)][price_key] = self.cur_prices[price_key]
+                    else:
+
+                        self.df = self.df.reindex(pd.to_datetime(self.df.index.union(self.rng)))
                         self.df[str(key)][price_key] = self.cur_prices[price_key]
+                mask = (self.df.index > pd.to_datetime(datetime.date.today() - timedelta(days=30)))
+                print(self.df.loc[mask])
 
     """
     Function to store a model's prices specified by the serial number
@@ -155,10 +169,10 @@ class PredictionMachine:
             if i >= len(pred_rng) - 2:
                 continue
             day_feat_vec = day - days_out_prediction
-            day_formatted = pd.to_datetime(str(day_feat_vec).split()[0])
+            day_formatted = pd.to_datetime(str(day_feat_vec))
             feat_vec = self.X[str(day_formatted).split()[0]]
             prediction = self.cur_model.predict(np.reshape(feat_vec, (1, -1)))
-            self.cur_prices[day] = prediction[0]
+            self.cur_prices[pd.to_datetime(day)] = prediction[0]
 
     """
     Function to load X which contains the feature vectors
@@ -191,15 +205,16 @@ class PredictionMachine:
         for tup in data:
             db_time, price = tup
             if db_time is not None and price is not None:
-                db_time = str(db_time)
+                db_time = pd.to_datetime(str(db_time))
                 price = float(price)
                 formatted_data[db_time] = price
 
         # Update the pandas dataframe
-        for df_time, data in self.df.iterrows():
-            for db_time in formatted_data.keys():
-                if str(df_time) == str(db_time):
-                    self.df.set_value(df_time, 'actual', formatted_data[db_time])
+        for db_time in formatted_data.keys():
+            if not db_time in self.df.index:
+                self.df = self.df.reindex(pd.to_datetime(self.df.index.union(self.rng)))
+                #print(db_time, '\t', formatted_data[db_time])
+            self.df.set_value(db_time, 'actual', formatted_data[db_time])
 
     """
     Function to retrieve data from the database and return it
@@ -228,19 +243,36 @@ class PredictionMachine:
     Function to load a previously stored database
     """
     def load(self, filename=None):
+        start_date = self.find_last_saved_date()
         if filename == None:
-            self.df = pickle.load(open('pickled_files/prediction_machine/predictions_' + self.table + '.pkl', 'rb'))
+            self.df = pickle.load(open('pickled_files/prediction_machine/predictions_' + self.table + '_' + start_date + '.pkl', 'rb'))
             return self.df
         else:
             self.df = pickle.load(open(filename, 'rb'))
             return self.df
 
     """
+    Function to load a previously stored database
+    """
+    def find_last_saved_date(self):
+        date = datetime.date.today() - timedelta(days=1)
+        start_date = str(date)
+        found = False
+        while(not found):
+            date -= timedelta(days=1)
+            start_date = str(date)
+            for f in glob.glob("pickled_files/prediction_machine/*" + start_date + "*"):
+                found = True
+        return start_date
+
+    """
     Function to store the database
     """
     def dump(self, filename=None):
+        start_date = str(datetime.date.today())
+        start_date.replace('/', '_')
         if filename == None:
-            pickle.dump(self.df, open('pickled_files/prediction_machine/predictions_' + self.table + '.pkl', 'wb'))
+            pickle.dump(self.df, open('pickled_files/prediction_machine/predictions_' + self.table + '_' + start_date + '.pkl', 'wb'))
         else:
             pickle.dump(self.df, open(filename, 'wb'))
 
@@ -252,12 +284,23 @@ class PredictionMachine:
         start_date.replace('/', '_')
         if filename == None:
             writer = pd.ExcelWriter('analysis/' + self.table + '_predictions_' + start_date + '.xlsx')
-            self.df.to_excel(writer, 'Predictions')
-            writer.save()
         else:
             writer = pd.ExcelWriter(filename)
-            self.df.to_excel(writer, 'Predictions')
-            writer.save()
+        new_df = self.format_excel()
+        new_df.to_excel(writer, 'Predictions')
+        writer.save()
+
+    """
+    Function to format the dataframe in order to print to excel
+    """
+    def format_excel(self):
+        start_date = str(datetime.date.today() - datetime.timedelta(days=30))
+        rng = pd.date_range(start=start_date, end=self.end_date, freq='D')
+        new_df = pd.DataFrame(columns=[self.df.columns], index=rng)
+        for date in rng:
+            if date in self.df.index:
+                new_df.loc[date,:] = self.df.loc[date,:]
+        return new_df
 
     """
     Function to store a backup of the database
@@ -277,10 +320,7 @@ if __name__ == '__main__':
         tables = pickle.load(f)
         for table in tables:
             pm = PredictionMachine(table)
-            try:
-                pm.load()
-            except:
-                pass
+            #pm.load()
             pm.load_model_db()
             pm.update_models()
             pm.update_actual()

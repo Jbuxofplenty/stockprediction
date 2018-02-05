@@ -230,9 +230,9 @@ def main():
             params = {}
             params['days_out_prediction'] = 7
             params['start_date'] = datetime.date.today()
-            params['time_intervals_bool'] = False
+            params['time_intervals_bool'] = True
             params['time_intervals'] = [1]
-            params['sector_info'] = False
+            params['sector_info'] = True
             params['table'] = table
             fv = FeatureVectorizor(params=params)
 
