@@ -2,3 +2,5 @@ aapl
 bold
 cmg
 fix
+goog
+msft

@@ -1,9 +1,17 @@
 #!/usr/bin/env python3
 
+print("Loading...")
+
+import os
+import sys
+import glob
 import pickle
+import MySQLdb
 import argparse
 import datetime
 import requests
+import subprocess
+import pandas as pd
 from datetime import timedelta
 from model_db import ModelDatabase
 from mlp_regression import Numbers
@@ -127,6 +135,46 @@ class spinterface():
         print('New model stored successfully...')
 
     """
+    Function to delete a model out of a database
+    """
+    def delete_model(self, serial_num):
+        model_db = ModelDatabase()
+        model_db.load()
+        try:
+            model_db.del_item(serial_num)
+            os.chdir('pickled_files/models/')
+            for name in glob.glob('*_' + str(serial_num) + '_*.pkl'):
+                os.remove(name)
+            os.chdir('..')
+            os.chdir('training_data/')
+            for name in glob.glob('*_' + str(serial_num) + '_*.pkl'):
+                os.remove(name)
+            os.chdir('..')
+            os.chdir('..')
+            model_db.dump()
+        except:
+            print(str(serial_num) + " doesn't exist.")
+
+
+    """
+    Function to delete all of the models out of the database
+    """
+    def delete_all_models(self):
+        model_db = ModelDatabase()
+        model_db.load()
+        model_db.del_all_items()
+        os.chdir('pickled_files/models/')
+        for name in glob.glob('*.pkl'):
+            os.remove(name)
+        os.chdir('..')
+        os.chdir('training_data/')
+        for name in glob.glob('*.pkl'):
+            os.remove(name)
+        os.chdir('..')
+        os.chdir('..')
+        model_db.dump()
+
+    """
     Function to display the models sub-category menu and perform the appropriate function
     """
     def models_menu(self):
@@ -136,7 +184,6 @@ class spinterface():
     1.  Create model
     2.  Delete model
     3.  Show model parameters
-    4.  Delete all models
     ..  Previous menu
 """
 
@@ -151,32 +198,54 @@ class spinterface():
         elif self.sub_category == 2:
             model_db = ModelDatabase()
             model_db.load()
-            serial_num = int(input("Serial Number (all:0):  "))
+            serial_num = int(input("Serial Number ('0': all):  "))
             if serial_num:
-                print(model_db.db[serial_num])
+                self.delete_model(serial_num)
             else:
-                print(model_db.db)
+                choice = int(input("Are you sure (y or n):  "))
+                if choice == 'y':
+                    self.delete_all_models()
 
         # print out parameters of the different models
         elif self.sub_category == 3:
             model_db = ModelDatabase()
             model_db.load()
-            serial_num = int(input("Serial Number (all:0):  "))
+            serial_num = int(input("Serial Number ('0': all):  "))
             if serial_num:
-                print(model_db.db[serial_num])
+                try:
+                    print(model_db.db[serial_num])
+                except:
+                    print(str(serial_num) + " doesn't exist.")
             else:
                 print(model_db.db)
 
     """
+    Helper function to create a batch script and run it given a string
+    """
+    def run_batch_script(self, script):
+        fname = "test.bat"
+        with open(fname, "w") as f:
+            f.write(script)
+        subp = subprocess.Popen(fname, shell=True)
+        subp.communicate()
+        os.remove(fname)
+
+    """
     Function to predict the prices for today on all of the models in the db
     """
-    def predict_prices_today(self):
+    def predict_prices_today(self, table=None):
         spd = StockPriceData()
         spd.update_symbols()
-        exec(open("./stock_price_data.py").read())
-        print("Price data retrieved and stored into mySQL database...")
-        exec(open("./prediction_machine.py").read())
-        print("Predict all of the prices for the symbols in the database...")
+        if table is None:
+            exec(open("./stock_price_data.py").read())
+            print("Price data retrieved and stored into mySQL database...")
+            exec(open("./prediction_machine.py").read())
+            print("Predict all of the prices for the symbols in the database...")
+        else:
+            self.run_batch_script("python stock_price_data.py --table " + table)
+            print("Price data retrieved and stored into mySQL database for table (" + table + ")...")
+            self.run_batch_script("python prediction_machine.py --table " + table)
+            print("Predict all of the prices for " + table + " in the database...")
 
     """
     Function to display the predictions sub-category menu and perform the appropriate function
@@ -193,7 +262,11 @@ class spinterface():
         self.parse_sb_input(pm)
         # do the required set of sequences for the option chosen
         if self.sub_category == 1:
-            self.predict_prices_today()
+            table = str(input("Table ('0': all):  "))
+            if table == '0':
+                self.predict_prices_today()
+            else:
+                self.predict_prices_today(table=table)
 
     """
     Function to display the feature vectors sub-category menu and perform the appropriate function

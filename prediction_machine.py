@@ -147,16 +147,12 @@ class PredictionMachine:
                     self.df[str(key)] = pd.Series(self.cur_prices)
                 for price_key in self.cur_prices.keys():
                     if price_key in self.df[str(key)].index:
-                        print(price_key)
                         if pd.isnull(self.df[str(key)][price_key]):
-                            print('fo real')
                             self.df[str(key)][price_key] = self.cur_prices[price_key]
                     else:
-                        print(price_key, '-=--------')
                         self.df = self.df.reindex(pd.to_datetime(self.df.index.union(self.rng)))
                         self.df[str(key)][price_key] = self.cur_prices[price_key]
                 mask = (self.df.index > pd.to_datetime(datetime.date.today() - timedelta(days=30)))
-                print(self.df.loc[mask])
 
     """
     Function to store a model's prices specified by the serial number
@@ -316,18 +312,30 @@ class PredictionMachine:
             pickle.dump(self.df, open(filename, 'wb'))
 
 if __name__ == '__main__':
-    # find the last pickled file and load this set of symbols
-    list_of_files = glob.glob('pickled_files/symbols/*.pkl')
+    parser = argparse.ArgumentParser(description='Prediction Machince options')
+    parser.add_argument('--table', type=str, default=None,
+                        help="Pass in a specific table to predict prices for, not specifying predicts prices for all the tables.")
+    args = parser.parse_args()
+
+    if args.table is None:
+        # find the last pickled file and load this set of symbols
+        list_of_files = glob.glob('pickled_files/symbols/*.pkl')
+    else:
+        # find the last pickled file and load this set of symbols
+        list_of_files = glob.glob('pickled_files/symbols/' + args.table + '*.pkl')
     fname = max(list_of_files, key=os.path.getctime)
     with open(fname, 'rb') as f:
         tables = pickle.load(f)
         for table in tables:
             pm = PredictionMachine(table)
-            pm.load()
+            try:
+                pm.load()
+            except:
+                pass
             pm.load_model_db()
             pm.update_models()
             pm.update_actual()
             pm.predict_models()
             pm.dump()
             pm.export_excel()
-        print(pm.model_db)
+        # print(pm.model_db)
