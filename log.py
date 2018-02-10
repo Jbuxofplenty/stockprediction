@@ -14,4 +14,4 @@ with open('log.txt', mode='r') as file:
 
 # Append the successful daily update to the log
 with open('log.txt', mode='a') as file:
-    file.write('%s - Stock Prediction Daily Update Completed' % (start_date))
+    file.write('%s - Stock Prediction Daily Update Completed\n' % (start_date))

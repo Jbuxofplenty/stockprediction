@@ -115,6 +115,6 @@ if __name__ == '__main__':
     model_db = ModelDatabase()
     model_db.load()
     # Put commands to adjust ModelDatabase
-    model_db.del_all_items()
+    #model_db.del_all_items()
     print(model_db.db)
     model_db.dump()

@@ -70,6 +70,7 @@ class LinearRegressor:
 
         # Create the model
         self.model = linear_model.LinearRegression(fit_intercept=self.params['fit_intercept'], normalize=self.params['normalize'], copy_X=self.params['copy_X'], n_jobs=self.params['n_jobs'])
+        self.serial_num = 0
 
     def train(self):
         """
@@ -113,22 +114,21 @@ class LinearRegressor:
         hash_X = model_db.find_hash(fname_X)
         model_db.store_cur_data([hash_X], columns=['X_hash'])
         model_db.store_cur_data([0], columns=['news_params'])
-        serial_num = model_db.find_serial_number()
+        self.serial_num = model_db.find_serial_number()
 
         # Store the model with the appended serial_number
-        fname_model = "pickled_files/models/lr_regression_" + str(serial_num) + "_" + data.params['table'] + ".pkl"
+        fname_model = "pickled_files/models/lr_regression_" + str(self.serial_num) + "_" + data.params['table'] + ".pkl"
         self.dump(fname_model)
         hash_model = model_db.find_hash(fname_model)
         model_db.store_cur_data([hash_model], columns=['model_hash'])
 
         # Store the data that trained the model
-        data.dump_X(serial_num=serial_num)
-        data.dump_Y(serial_num=serial_num)
+        data.dump_X(serial_num=self.serial_num)
+        data.dump_Y(serial_num=self.serial_num)
 
         # Store all the data in the data db and dump the db
-        model_db.store_data(serial_num)
+        model_db.store_data(self.serial_num)
         model_db.dump()
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Linear Regression Classifier Options')
@@ -136,9 +136,9 @@ if __name__ == '__main__':
                         help='Restrict training to this many examples')
     args = parser.parse_args()
 
-    # Load the symbols that are stored from the original stock_price_data.py script
-    fname='pickled_files/misc/symbols'
-    with open(fname + '.pkl', 'rb') as f:
+    # find the last pickled file and load this set of symbols
+    list_of_files = glob.glob('pickled_files/symbols/*.pkl')
+    with open(fname, 'rb') as f:
         tables = pickle.load(f)
         for table in tables:
             fname_X = "pickled_files/training_data/sd_X_" + table + ".pkl"

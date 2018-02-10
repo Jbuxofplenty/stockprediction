@@ -147,10 +147,12 @@ class PredictionMachine:
                     self.df[str(key)] = pd.Series(self.cur_prices)
                 for price_key in self.cur_prices.keys():
                     if price_key in self.df[str(key)].index:
+                        print(price_key)
                         if pd.isnull(self.df[str(key)][price_key]):
+                            print('fo real')
                             self.df[str(key)][price_key] = self.cur_prices[price_key]
                     else:
-
+                        print(price_key, '-=--------')
                         self.df = self.df.reindex(pd.to_datetime(self.df.index.union(self.rng)))
                         self.df[str(key)][price_key] = self.cur_prices[price_key]
                 mask = (self.df.index > pd.to_datetime(datetime.date.today() - timedelta(days=30)))
@@ -314,13 +316,14 @@ class PredictionMachine:
             pickle.dump(self.df, open(filename, 'wb'))
 
 if __name__ == '__main__':
-    # Load the symbols that are stored from the original stock_price_data.py script
-    fname='pickled_files/misc/symbols'
-    with open(fname + '.pkl', 'rb') as f:
+    # find the last pickled file and load this set of symbols
+    list_of_files = glob.glob('pickled_files/symbols/*.pkl')
+    fname = max(list_of_files, key=os.path.getctime)
+    with open(fname, 'rb') as f:
         tables = pickle.load(f)
         for table in tables:
             pm = PredictionMachine(table)
-            #pm.load()
+            pm.load()
             pm.load_model_db()
             pm.update_models()
             pm.update_actual()
