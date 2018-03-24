@@ -142,7 +142,7 @@ class PredictionMachine:
                 self.cur_model = model.load(fname)
                 self.X = self.load_X(key)
                 self.predict_prices(key)
-                # Check to make sure the
+                # Check to make sure the cells have not already been filled and that the model is a column
                 if not str(key) in self.df.columns:
                     self.df[str(key)] = pd.Series(self.cur_prices)
                 for price_key in self.cur_prices.keys():
@@ -250,7 +250,7 @@ class PredictionMachine:
             return self.df
 
     """
-    Function to load a previously stored database
+    Helper function to find the last saved pickle file of the prediction machine
     """
     def find_last_saved_date(self):
         date = datetime.date.today() - timedelta(days=1)
@@ -312,7 +312,7 @@ class PredictionMachine:
             pickle.dump(self.df, open(filename, 'wb'))
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Prediction Machince options')
+    parser = argparse.ArgumentParser(description='Prediction Machine options')
     parser.add_argument('--table', type=str, default=None,
                         help="Pass in a specific table to predict prices for, not specifying predicts prices for all the tables.")
     args = parser.parse_args()

@@ -101,7 +101,7 @@ class ModelDatabase:
             pickle.dump(self.db, open(filename, 'wb'))
 
     """
-    Function to store a backup of the database
+    Function to 3 a backup of the database
     """
     def backup_db(self, filename=None):
         start_date = str(datetime.date.today())

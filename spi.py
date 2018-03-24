@@ -296,6 +296,30 @@ class spinterface():
         self.parse_sb_input(dm)
         # do the required set of sequences for the option chosen
 
+
+    """
+    Function to display the analysis sub-category menu and perform the appropriate function
+    """
+    def analysis_menu(self):
+        dm = """---------------------------
+        Data Menu
+---------------------------
+    1.  Compute model error
+    ..  Previous menu
+"""
+
+        self.parse_sb_input(dm)
+        # do the required set of sequences for the option chosen
+        if self.sub_category == 1:
+            table = str(input("Serial Number of Model ('0': all):  "))
+            if table == '0':
+                pass
+                #self.predict_prices_today()
+            else:
+                pass
+                #self.predict_prices_today(table=table)
+
+
     """
     Function to branch off to the different display menus
     """
@@ -311,6 +335,8 @@ class spinterface():
                 self.models_menu()
             elif self.category == 4:
                 self.predictions_menu()
+            elif self.category == 5:
+                self.analysis_menu()
             else:
                 self.sub_category = 0
                 self.main_menu
@@ -327,6 +353,7 @@ Stock Prediction Interface
     2.  Feature Vectors
     3.  Models
     4.  Predictions
+    5.  Analysis
     ..  Exit
 """
         try:

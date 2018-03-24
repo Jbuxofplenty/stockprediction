@@ -7,6 +7,9 @@ import requests
 from datetime import timedelta
 
 class FeatureVectorizor():
+    """
+    Class that provides a framework for creating arrays of feature vectors that can be used to train machine learning models
+    """
     def __init__(self, params):
         # Calculated variables
         self.feature_vector = []
@@ -31,6 +34,9 @@ class FeatureVectorizor():
         self.sectors = ['information_technology', 'health_care', 'materials', 'financials', 'consumer_discretionary', 'industrials', 'consumer_staples', 'utilities', 'real_estate', 'energy', 'telecommunication_services']
         self.table = self.params['table']
 
+    """
+    Function that generates a single feature vector and appends it to X (the array of feature vecs for a model to be trained on)
+    """
     def gen_feature_vector(self, start_date=None):
         # Reinitialize all of the variables
         self.feature_vector = []
@@ -62,6 +68,9 @@ class FeatureVectorizor():
         self.Y[str(self.start_date)] = self.output
         return self.feature_vector, self.output
 
+    """
+    Function that retrieves data out of the mySQL database and returns a formatted list
+    """
     def db_retrieve_data(self, query, table=None):
         db = MySQLdb.connect(host="localhost",    # your host, usually localhost
                              user="josiah",         # your username
@@ -90,6 +99,9 @@ class FeatureVectorizor():
 
         return formatted_data
 
+    """
+    Function that formats the data from the mySQL db to a list
+    """
     def format_data(self, data=None):
         formatted_data = []
         for i, datum in enumerate(data[0]):
@@ -100,6 +112,9 @@ class FeatureVectorizor():
                     formatted_data.append(float(datum))
         return formatted_data
 
+    """
+    Function that formats the sector data from the mySQL db to a list
+    """
     def format_sector_data(self, data=None):
         formatted_data = []
         for row in data:
@@ -113,6 +128,9 @@ class FeatureVectorizor():
             formatted_data.append(formatted_row)
         return formatted_data
 
+    """
+    Function that creates a query which will grab data for a single day from the MySQL db given a table and a day
+    """
     def create_query(self, table, timestamp=None, whole_day=False):
         if timestamp == None:
             query = 'SELECT * FROM ' + table + ';'
@@ -123,6 +141,9 @@ class FeatureVectorizor():
                 query = 'SELECT * FROM ' + table + ' WHERE timestamp = \'' + str(timestamp) + '\';'
         return query
 
+    """
+    Helper function that creates a list of timestamps for the running average features
+    """
     def create_timestamp_list(self, start_date=None, time_interval=1):
         if start_date is None:
             start_date = self.start_date
@@ -131,6 +152,9 @@ class FeatureVectorizor():
         timestamps.append(end_date)
         return timestamps
 
+    """
+    Helper function that finds the derivative of a set of data given a time_interval
+    """
     def find_derivative(self, data=None, time_interval=1):
         feature_vector = []
         for end_datum, start_datum in zip(data[0], data[1]):
@@ -138,6 +162,9 @@ class FeatureVectorizor():
         self.feature_vector.append(feature_vector)
         return feature_vector
 
+    """
+    Helper function that finds the correct output to append to self.Y given a time interval, date, and table
+    """
     def find_output(self, start_date=None, time_interval=7, table=None):
         if start_date is None:
             start_date = self.start_date
@@ -151,11 +178,17 @@ class FeatureVectorizor():
         self.output = retrieved_data[0]
         return self.output
 
+    """
+    Helper function that formats a feature vector and returns it
+    """
     def format_feature_vector(self):
         tmp_feature_vector = [item for sublist in self.feature_vector for item in sublist]
         self.feature_vector = tmp_feature_vector
         return self.feature_vector
 
+    """
+    Helper function that appends the sector data for the day to the current feature vector
+    """
     def append_sector_info(self, table='SECTOR', timestamp=None):
         if timestamp is None:
             timestamp = self.start_date
@@ -173,6 +206,9 @@ class FeatureVectorizor():
         for datum in new_data:
             self.feature_vector.append(datum)
 
+    """
+    Helper function that dump a single feature vector
+    """
     def dump_feature_vector(self, fname='sd_feature_vec', start_date=None, table=None, num_days=1):
         if start_date is not None and table is not None:
             if num_days != 1:
@@ -188,27 +224,45 @@ class FeatureVectorizor():
         with open('pickled_files/feature_vecs/' + fname + '_' + self.table + '.pkl', 'wb') as f:
             pickle.dump(self.feature_vector, f)
 
+    """
+    Helper function that loads in a single feature vector
+    """
     def load_feature_vector(self, fname='sd_feature_vec'):
         with open('pickled_files/feature_vecs/' + fname + '_' + self.table + '.pkl', 'rb') as f:
             self.feature_vector = pickle.load(f)
 
+    """
+    Helper function that dumps the array of feature vectors stored in self.X
+    """
     def dump_X(self, fname='sd_X'):
         with open('pickled_files/training_data/' + fname + '_' + self.table + '.pkl', 'wb') as f:
             pickle.dump([self.X, self.params], f)
 
+    """
+    Helper function that dumps the corresponding outputs stored in self.Y for the array of feature vectors
+    """
     def dump_Y(self, fname='sd_Y'):
         with open('pickled_files/training_data/' + fname + '_' + self.table + '.pkl', 'wb') as f:
             pickle.dump(self.Y, f)
 
+    """
+    Helper function that loads stored versions of X
+    """
     def load_X(self, fname='sd_X'):
         with open('pickled_files/training_data/' + fname + '_' + self.table + '.pkl', 'rb') as f:
             data = pickle.load(f)
             self.X, self.params = data[0], data[1]
 
+    """
+    Helper function that loads stored versions of Y
+    """
     def load_Y(self, fname='sd_Y'):
         with open('pickled_files/training_data/' + fname + '_' + self.table + '.pkl', 'rb') as f:
             self.Y = pickle.load(f)
 
+    """
+    Helper function that loads the symbol for which feature vectors should be made for
+    """
     def load_tables(self, fname='pickled_files/misc/symbols'):
         with open(fname + '.pkl', 'rb') as f:
             self.tables = pickle.load(f)
