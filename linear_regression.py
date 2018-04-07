@@ -1,5 +1,7 @@
+import os
 import gzip
 import math
+import glob
 import pickle
 import argparse
 import numpy as np
@@ -24,8 +26,10 @@ class Numbers:
         self.Y_dict = pickle.load(open(fname_Y, 'rb'))
         self.X = []
         self.Y = []
+        x_keys = sorted(self.X_dict.keys())
+        y_keys = sorted(self.Y_dict.keys())
 
-        for key_X, key_Y in zip(self.X_dict.keys(), self.Y_dict.keys()):
+        for key_X, key_Y in zip(x_keys, y_keys):
             self.X.append(self.X_dict[key_X])
             self.Y.append(self.Y_dict[key_Y])
 
@@ -37,11 +41,11 @@ class Numbers:
         self.test_y = test_labels
 
     def dump_X(self, fname='sd_X', serial_num=None):
-        with open('pickled_files//training_data//' + fname + '_' + str(serial_num) + '_' + str(self.params['table']) + '.pkl', 'wb') as f:
+        with open('pickled_files//training_data//' + str(self.params['table'])[0] + '//' + fname + '_' + str(serial_num) + '_' + str(self.params['table']) + '.pkl', 'wb') as f:
             pickle.dump([self.X_dict, self.params], f)
 
     def dump_Y(self, fname='sd_Y', serial_num=None):
-        with open('pickled_files//training_data//' + fname + '_' + str(serial_num) + '_' + str(self.params['table']) + '.pkl', 'wb') as f:
+        with open('pickled_files//training_data//' + str(self.params['table'])[0] + '//' + fname + '_' + str(serial_num) + '_' + str(self.params['table']) + '.pkl', 'wb') as f:
             pickle.dump(self.Y_dict, f)
 
 class LinearRegressor:
@@ -117,7 +121,7 @@ class LinearRegressor:
         self.serial_num = model_db.find_serial_number()
 
         # Store the model with the appended serial_number
-        fname_model = "pickled_files/models/lr_regression_" + str(self.serial_num) + "_" + data.params['table'] + ".pkl"
+        fname_model = "pickled_files/models/" + str(data.params['table'])[0] + '/' + "lr_regression_" + str(self.serial_num) + "_" + data.params['table'] + ".pkl"
         self.dump(fname_model)
         hash_model = model_db.find_hash(fname_model)
         model_db.store_cur_data([hash_model], columns=['model_hash'])
@@ -138,12 +142,16 @@ if __name__ == '__main__':
 
     # find the last pickled file and load this set of symbols
     list_of_files = glob.glob('pickled_files/symbols/*.pkl')
+    fname = max(list_of_files, key=os.path.getctime)
     with open(fname, 'rb') as f:
         tables = pickle.load(f)
+        tables = ['aapl']
         for table in tables:
-            fname_X = "pickled_files/training_data/sd_X_" + table + ".pkl"
-            fname_Y = "pickled_files/training_data/sd_Y_" + table + ".pkl"
+            print(table)
+            fname_X = "pickled_files/training_data/" + table[0] + '/' + "sd_X_" + table + ".pkl"
+            fname_Y = "pickled_files/training_data/" + table[0] + '/' + "sd_Y_" + table + ".pkl"
             data = Numbers(fname_X=fname_X, fname_Y=fname_Y)
+            print(len(data.X))
 
             # Perform cross validation on each of the optimal models and show the accuracy
             lr_best_params = {'fit_intercept':True, 'normalize':False, 'copy_X':True, 'n_jobs':1}
@@ -153,22 +161,23 @@ if __name__ == '__main__':
             # Store the model parameters into the model_db
             lr.store_model_db(data, fname_X)
 
-    # # Analyze the model
-    # lr_acc = lr.evaluate()
-    # print(lr_acc)
-    #
-    # # Make predictions using the testing set
-    # pred_y = lr.predict(data.test_x)
-    #
-    # # The mean squared error
-    # print("Mean squared error: %.2f" % mean_squared_error(data.test_y, pred_y))
-    # # Explained variance score: 1 is perfect prediction
-    # print('Variance score: %.2f' % r2_score(data.test_y, pred_y))
-    #
-    # # Plot outputs
-    # x = []
-    # for i, feat_vec in enumerate(data.test_x):
-    #     x.append(i)
-    # plt.scatter(x, data.test_y,  color='black')
-    # plt.plot(x, pred_y, color='blue', linewidth=3)
-    # plt.show()
+    # Analyze the model
+    lr_acc = lr.evaluate()
+    print(lr_acc)
+
+    # Make predictions using the testing set
+    pred_y = lr.predict(data.test_x)
+
+    # The mean squared error
+    print("Mean squared error: %.2f" % mean_squared_error(data.test_y, pred_y))
+    # Explained variance score: 1 is perfect prediction
+    print('Variance score: %.2f' % r2_score(data.test_y, pred_y))
+
+    # Plot outputs
+    x = []
+    for i, feat_vec in enumerate(data.test_x):
+        x.append(i)
+    plt.scatter(x, data.test_y,  color='black')
+    plt.plot(x, pred_y, color='blue', linewidth=3)
+    plt.savefig('test')
+    plt.show()

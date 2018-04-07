@@ -1,6 +1,5 @@
 import pickle
 import hashlib
-import MySQLdb
 import datetime
 import argparse
 import glob, os
@@ -40,11 +39,11 @@ class Numbers:
         self.test_y = test_labels
 
     def dump_X(self, fname='sd_X', serial_num=None):
-        with open('pickled_files/training_data/' + fname + '_' + str(serial_num) + '_' + str(self.params['table']) + '.pkl', 'wb') as f:
+        with open('pickled_files/training_data/' + str(self.params['table'])[0] + '/' + fname + '_' + str(serial_num) + '_' + str(self.params['table']) + '.pkl', 'wb') as f:
             pickle.dump([self.X_dict, self.params], f)
 
     def dump_Y(self, fname='sd_Y', serial_num=None):
-        with open('pickled_files/training_data/' + fname + '_' + str(serial_num) + '_' + str(self.params['table']) + '.pkl', 'wb') as f:
+        with open('pickled_files/training_data/' + str(self.params['table'])[0] + '/' + fname + '_' + str(serial_num) + '_' + str(self.params['table']) + '.pkl', 'wb') as f:
             pickle.dump(self.Y_dict, f)
 
 class PredictionMachine:
@@ -101,8 +100,8 @@ class PredictionMachine:
             fv.dump_Y()
 
             # Open the new updated pickle file for training data
-            fname_X = "pickled_files/training_data/sd_X_" + X_params['table'] + ".pkl"
-            fname_Y = "pickled_files/training_data/sd_Y_" + X_params['table'] + ".pkl"
+            fname_X = "pickled_files/training_data/" + str(self.table)[0] + '/' + "sd_X_" + self.table + ".pkl"
+            fname_Y = "pickled_files/training_data/" + str(self.table)[0] + '/' + "sd_Y_" + self.table + ".pkl"
             data = Numbers(fname_X=fname_X, fname_Y=fname_Y)
 
             # Make a new MLP Regressor with the optimal parameters
@@ -115,10 +114,10 @@ class PredictionMachine:
 
             # Store the model with the appended serial_number
             if self.model_db[key]['type'] == 'Linear Regressor':
-                fname_model = "pickled_files/models/lr_regression_" + str(serial_num) + "_" + X_params['table'] + ".pkl"
+                fname_model = "pickled_files/models/" + str(self.table)[0] + '/' + "lr_regression_" + str(serial_num) + "_" + self.table + ".pkl"
                 lr.dump(fname_model)
             elif self.model_db[key]['type'] == 'MLP Regressor':
-                fname_model = "pickled_files/models/mlp_regression_" + str(serial_num) + "_" + X_params['table'] + ".pkl"
+                fname_model = "pickled_files/models/" + str(self.table)[0] + '/' + "mlp_regression_" + str(serial_num) + "_" + self.table + ".pkl"
                 mlpr.dump(fname_model)
 
             # Store the data that trained the model
@@ -134,10 +133,10 @@ class PredictionMachine:
         for key in keys:
             if self.model_db[key]['X_params']['table'] == self.table:
                 if self.model_db[key]['type'] == 'MLP Regressor':
-                    fname = "pickled_files/models/mlp_regression_" + str(key) + "_" + self.table + ".pkl"
+                    fname = "pickled_files/models/" + str(self.model_db[key]['X_params']['table'])[0] + '/' + "mlp_regression_" + str(key) + "_" + self.table + ".pkl"
                     model = LinearRegressor()
                 elif self.model_db[key]['type'] == 'Linear Regressor':
-                    fname = "pickled_files/models/lr_regression_" + str(key) + "_" + self.table + ".pkl"
+                    fname = "pickled_files/models/" + str(self.model_db[key]['X_params']['table'])[0] + '/' + "lr_regression_" + str(key) + "_" + self.table + ".pkl"
                     model = MLPRegressor()
                 self.cur_model = model.load(fname)
                 self.X = self.load_X(key)
@@ -176,7 +175,7 @@ class PredictionMachine:
     Function to load X which contains the feature vectors
     """
     def load_X(self, serial_num):
-        self.X, params = pickle.load(open("pickled_files/training_data/sd_X_" + str(serial_num) + "_" + self.table + ".pkl", 'rb'))
+        self.X, params = pickle.load(open("pickled_files/training_data/" + str(self.table)[0] + '/' + "sd_X_" + str(serial_num) + "_" + self.table + ".pkl", 'rb'))
         return self.X
 
     """
@@ -194,18 +193,14 @@ class PredictionMachine:
     Function to update all of the actual prices
     """
     def update_actual(self):
-        # Retrieve all of the prices and timestamps from the db
-        query = 'SELECT timestamp, price FROM ' + self.table + ';'
-        data = self.db_retrieve_data(query)
+        # Retrieve all of the prices and timestamps from its respective database
+        with open('pickled_files/sp_data/' + str(self.table)[0] + '/' + str(self.table) + '.pkl', 'rb') as f:
+            data = pickle.load(f)
 
         # Format the data
         formatted_data = {}
-        for tup in data:
-            db_time, price = tup
-            if db_time is not None and price is not None:
-                db_time = pd.to_datetime(str(db_time))
-                price = float(price)
-                formatted_data[db_time] = price
+        for key in data['TIME_SERIES_DAILY_ADJUSTED'].keys():
+            formatted_data[key] = data['TIME_SERIES_DAILY_ADJUSTED'][key]['adjusted close']
 
         # Update the pandas dataframe
         for db_time in formatted_data.keys():
@@ -215,35 +210,12 @@ class PredictionMachine:
             self.df.set_value(db_time, 'actual', formatted_data[db_time])
 
     """
-    Function to retrieve data from the database and return it
-    """
-    def db_retrieve_data(self, query):
-        db = MySQLdb.connect(host="localhost",    # your host, usually localhost
-                             user="josiah",         # your username
-                             passwd="adversereaction",  # your password
-                             db="stock_data")        # name of the data base
-        cur = db.cursor()
-        try:
-            # Execute the SQL command
-            cur.execute(query)
-            data = cur.fetchall()
-            # Commit your changes in the database
-            db.commit()
-        except (MySQLdb.Error, MySQLdb.Warning) as e:
-            print(e)
-            # Rollback in case there is any error
-            db.rollback()
-            return None
-        db.close()
-        return data
-
-    """
     Function to load a previously stored database
     """
     def load(self, filename=None):
         start_date = self.find_last_saved_date()
         if filename == None:
-            self.df = pickle.load(open('pickled_files/prediction_machine/predictions_' + self.table + '_' + start_date + '.pkl', 'rb'))
+            self.df = pickle.load(open('pickled_files/prediction_machine/' + str(self.table)[0] + '/' + 'predictions_' + self.table + '_' + start_date + '.pkl', 'rb'))
             return self.df
         else:
             self.df = pickle.load(open(filename, 'rb'))
@@ -270,7 +242,7 @@ class PredictionMachine:
         start_date = str(datetime.date.today())
         start_date.replace('/', '_')
         if filename == None:
-            pickle.dump(self.df, open('pickled_files/prediction_machine/predictions_' + self.table + '_' + start_date + '.pkl', 'wb'))
+            pickle.dump(self.df, open('pickled_files/prediction_machine/' + str(self.table)[0] + '/' + 'predictions_' + self.table + '_' + start_date + '.pkl', 'wb'))
         else:
             pickle.dump(self.df, open(filename, 'wb'))
 
@@ -281,7 +253,7 @@ class PredictionMachine:
         start_date = str(datetime.date.today())
         start_date.replace('/', '_')
         if filename == None:
-            writer = pd.ExcelWriter('analysis/' + self.table + '_predictions_' + start_date + '.xlsx')
+            writer = pd.ExcelWriter('analysis/' + str(self.table)[0] + '/' + self.table + '_predictions_' + start_date + '.xlsx')
         else:
             writer = pd.ExcelWriter(filename)
         new_df = self.format_excel()
@@ -307,7 +279,7 @@ class PredictionMachine:
         start_date = str(datetime.date.today())
         start_date.replace('/', '_')
         if filename == None:
-            pickle.dump(self.df, open('pickled_files/prediction_machine/' + self.table + '_predictions_' + start_date + '.pkl', 'wb'))
+            pickle.dump(self.df, open('pickled_files/prediction_machine/' + str(self.table)[0] + '/' + self.table + '_predictions_' + start_date + '.pkl', 'wb'))
         else:
             pickle.dump(self.df, open(filename, 'wb'))
 

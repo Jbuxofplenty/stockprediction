@@ -1,0 +1,5 @@
+[cloudera-cdh]
+name=Cloudera CDH 5.9
+baseurl=http://archive.cloudera.com/cdh5/redhat/7/x86_64/cdh/5.9.0/
+gpgkey=http://archive.cloudera.com/cdh5/redhat/7/x86_64/cdh/RPM-GPG-KEY-cloudera  
+gpgcheck = 1
