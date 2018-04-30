@@ -6,7 +6,6 @@ import os
 import sys
 import glob
 import pickle
-import MySQLdb
 import argparse
 import datetime
 import requests
@@ -81,12 +80,10 @@ class spinterface():
         model = input("Model type (mlpr, lr):  ")
         X_params['days_out_prediction'] = int(input("Number of days to predict out:  "))
         total_points = int(input("Length of X:  "))
-
-        # non-customizable params
         X_params['start_date'] = datetime.date.today()
-        X_params['time_intervals_bool'] = True
-        X_params['time_intervals'] = [1]
-        X_params['sector_info'] = True
+        X_params['sector_info'] = False
+        X_params['type_options'] = {'STOCH':True, 'MACD':True, 'RSI':True, 'EMA':True, 'SMA':True, 'TIME_SERIES_DAILY_ADJUSTED':True}
+
         fv = FeatureVectorizor(params=X_params)
 
         # done because stock_price_data script loads this file to see what data to grab
@@ -95,6 +92,8 @@ class spinterface():
         # grab the data for the specified stock online before creating the feature vector
         exec(open("./stock_price_data.py").read())
         print('Retrieved the data from alphavantage...')
+
+        fv.load_sp_data()
 
         # cycle through the number of days at the given step size to make X and Y
         for i in range(0, total_points):
@@ -107,8 +106,8 @@ class spinterface():
         print('Stored the appropriate feature vectors...')
 
         # open the new updated pickle file for training data
-        fname_X = "pickled_files/training_data/sd_X_" + X_params['table'] + ".pkl"
-        fname_Y = "pickled_files/training_data/sd_Y_" + X_params['table'] + ".pkl"
+        fname_X = "pickled_files/training_data/" + X_params['table'][0] + "/sd_X_" + X_params['table'] + ".pkl"
+        fname_Y = "pickled_files/training_data/" + X_params['table'][0] + "/sd_Y_" + X_params['table'] + ".pkl"
         data = Numbers(fname_X=fname_X, fname_Y=fname_Y)
 
         # make a new MLP Regressor with the optimal parameters
@@ -133,6 +132,14 @@ class spinterface():
         data.dump_X(serial_num=r.serial_num)
         data.dump_Y(serial_num=r.serial_num)
         print('New model stored successfully...')
+
+        # delete the generated symbol files
+        list_of_files = glob.glob('pickled_files/symbols/*.pkl')
+        latest_file = max(list_of_files, key=os.path.getctime)
+        os.remove(latest_file)
+        list_of_files = glob.glob('pickled_files/symbols/*.txt')
+        latest_file = max(list_of_files, key=os.path.getctime)
+        os.remove(latest_file)
 
     """
     Function to delete a model out of a database

@@ -57,7 +57,7 @@ class FeatureVectorizor():
         self.find_output(table=self.table, time_interval=self.days_out_prediction)
         self.X[str(self.start_date)] = self.feature_vector
         self.Y[str(self.start_date)] = self.output
-        print(str(self.start_date), self.feature_vector[0])
+        #print(str(self.start_date), self.feature_vector[0])
         return self.feature_vector, self.output
 
     """
@@ -174,8 +174,7 @@ class FeatureVectorizor():
             with open('pickled_files/sp_data/' + str(self.table[0]) + '/' + str(self.table) + '.pkl', 'rb') as f:
                 self.sp_data = pickle.load(f)
         else:
-            fname = 'sp_data'
-            with open('pickled_files/sp_data/' + fname + '.pkl', 'rb') as f:
+            with open(fname, 'rb') as f:
                 self.sp_data = pickle.load(f)
 
     """
@@ -197,7 +196,6 @@ def main():
     fname='pickled_files/symbols/symbols'
     with open(fname + '.pkl', 'rb') as f:
         tables = pickle.load(f)
-        tables = ['aapl']
         for table in tables:
             # Initialize the model to generate each feature vector
             params = {}

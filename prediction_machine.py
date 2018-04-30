@@ -26,8 +26,10 @@ class Numbers:
         self.Y_dict = pickle.load(open(fname_Y, 'rb'))
         self.X = []
         self.Y = []
+        x_keys = sorted(self.X_dict.keys())
+        y_keys = sorted(self.Y_dict.keys())
 
-        for key_X, key_Y in zip(self.X_dict.keys(), self.Y_dict.keys()):
+        for key_X, key_Y in zip(x_keys, y_keys):
             self.X.append(self.X_dict[key_X])
             self.Y.append(self.Y_dict[key_Y])
 
@@ -39,11 +41,11 @@ class Numbers:
         self.test_y = test_labels
 
     def dump_X(self, fname='sd_X', serial_num=None):
-        with open('pickled_files/training_data/' + str(self.params['table'])[0] + '/' + fname + '_' + str(serial_num) + '_' + str(self.params['table']) + '.pkl', 'wb') as f:
+        with open('pickled_files//training_data//' + str(self.params['table'])[0] + '//' + fname + '_' + str(serial_num) + '_' + str(self.params['table']) + '.pkl', 'wb') as f:
             pickle.dump([self.X_dict, self.params], f)
 
     def dump_Y(self, fname='sd_Y', serial_num=None):
-        with open('pickled_files/training_data/' + str(self.params['table'])[0] + '/' + fname + '_' + str(serial_num) + '_' + str(self.params['table']) + '.pkl', 'wb') as f:
+        with open('pickled_files//training_data//' + str(self.params['table'])[0] + '//' + fname + '_' + str(serial_num) + '_' + str(self.params['table']) + '.pkl', 'wb') as f:
             pickle.dump(self.Y_dict, f)
 
 class PredictionMachine:
@@ -168,6 +170,7 @@ class PredictionMachine:
             day_feat_vec = day - days_out_prediction
             day_formatted = pd.to_datetime(str(day_feat_vec))
             feat_vec = self.X[str(day_formatted).split()[0]]
+            #print(feat_vec)
             prediction = self.cur_model.predict(np.reshape(feat_vec, (1, -1)))
             self.cur_prices[pd.to_datetime(day)] = prediction[0]
 
@@ -298,7 +301,9 @@ if __name__ == '__main__':
     fname = max(list_of_files, key=os.path.getctime)
     with open(fname, 'rb') as f:
         tables = pickle.load(f)
+        print(tables)
         for table in tables:
+            print(table)
             pm = PredictionMachine(table)
             try:
                 pm.load()

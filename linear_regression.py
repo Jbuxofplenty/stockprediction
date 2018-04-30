@@ -145,13 +145,9 @@ if __name__ == '__main__':
     fname = max(list_of_files, key=os.path.getctime)
     with open(fname, 'rb') as f:
         tables = pickle.load(f)
-        tables = ['aapl']
         for table in tables:
-            print(table)
             fname_X = "pickled_files/training_data/" + table[0] + '/' + "sd_X_" + table + ".pkl"
             fname_Y = "pickled_files/training_data/" + table[0] + '/' + "sd_Y_" + table + ".pkl"
-            data = Numbers(fname_X=fname_X, fname_Y=fname_Y)
-            print(len(data.X))
 
             # Perform cross validation on each of the optimal models and show the accuracy
             lr_best_params = {'fit_intercept':True, 'normalize':False, 'copy_X':True, 'n_jobs':1}

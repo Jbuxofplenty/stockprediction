@@ -4,3 +4,7 @@ cmg
 fix
 goog
 msft
+FORM
+FORTY
+FORR
+FRTA
