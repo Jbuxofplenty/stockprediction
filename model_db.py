@@ -35,21 +35,6 @@ class ModelDatabase:
             self.cur_model_params[col] = datum
 
     """
-    Function to delete an entry in the database given a key
-    """
-    def del_item(self, key=None):
-        del self.db[key]
-
-    """
-    Function to delete all the entries in the database
-    """
-    def del_all_items(self):
-        d = dict(self.db)
-        keys = d.keys()
-        for key in keys:
-            del self.db[key]
-
-    """
     Function to see if the cur_model_params variable is completely filled
     """
     def is_cur_data_filled(self):
@@ -66,13 +51,20 @@ class ModelDatabase:
         for key in self.db.keys():
             is_same = True
             for col, datum in zip(self.cur_model_params.keys(), self.cur_model_params.values()):
-                if self.db[key][col] != datum and col != 'model_hash' and col != 'X_hash':
+                if self.db[key][col] != datum and col != 'model_hash':
                     is_same = False
             if is_same:
                 return new_index
             else:
                 new_index += 1
         return new_index
+
+    """
+    Function to automatically update all of the training files for the models
+    """
+    def update_training_files(self):
+        for key in self.db.keys():
+
 
     """
     Function to find the hash of a given file
@@ -101,7 +93,7 @@ class ModelDatabase:
             pickle.dump(self.db, open(filename, 'wb'))
 
     """
-    Function to 3 a backup of the database
+    Function to store a backup of the database
     """
     def backup_db(self, filename=None):
         start_date = str(datetime.date.today())
@@ -114,7 +106,5 @@ class ModelDatabase:
 if __name__ == '__main__':
     model_db = ModelDatabase()
     model_db.load()
-    # Put commands to adjust ModelDatabase
-    #model_db.del_all_items()
-    print(model_db.db)
+    model_db.update_training_files()
     model_db.dump()
